@@ -41,22 +41,47 @@ class ApiClient {
       },
     };
 
+    console.log('🔍 API Request Details:', {
+      url,
+      method: config.method || 'GET',
+      headers: config.headers,
+      endpoint,
+      hostAddress: this.hostAddress,
+      baseUrl: this.baseUrl
+    });
+
     try {
       const response = await fetch(url, config);
       
+      console.log('📥 API Response:', {
+        status: response.status,
+        statusText: response.statusText,
+        url: response.url,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+
       // Handle 404 specifically
       if (response.status === 404) {
+        console.error('❌ 404 Error - Endpoint not found:', url);
         throw new ApiError('Endpoint not found', '404');
       }
 
       const data = await response.json();
+      console.log('📦 Response Data:', data);
 
       if (!response.ok) {
+        console.error('❌ API Error:', {
+          status: response.status,
+          statusText: response.statusText,
+          data
+        });
         throw new ApiError(data.message || 'Request failed', response.status.toString());
       }
 
       return data;
     } catch (error) {
+      console.error('❌ Request Error:', error);
       if (error instanceof ApiError) {
         throw error;
       }
@@ -66,6 +91,12 @@ class ApiClient {
 
   // Authentication
   async validateKey(hostAddress: string, apiKey: string): Promise<ApiResponse<boolean>> {
+    console.log('🔐 Starting validateKey with:', {
+      hostAddress,
+      apiKeyLength: apiKey.length,
+      apiKeyPreview: apiKey.substring(0, 10) + '...'
+    });
+
     // Don't set credentials until we know the request will succeed
     const tempHostAddress = this.hostAddress;
     const tempApiKey = this.apiKey;
@@ -75,13 +106,16 @@ class ApiClient {
       this.hostAddress = hostAddress;
       this.apiKey = apiKey;
       
+      console.log('🔍 Making request to /system/validate-key');
       const result = await this.request<boolean>('/system/validate-key');
       
       // Only set credentials permanently if request succeeds
       this.setCredentials(hostAddress, apiKey);
+      console.log('✅ validateKey successful, credentials set');
       
       return result;
     } catch (error) {
+      console.error('❌ validateKey failed:', error);
       // Restore original credentials on failure
       this.hostAddress = tempHostAddress;
       this.apiKey = tempApiKey;
