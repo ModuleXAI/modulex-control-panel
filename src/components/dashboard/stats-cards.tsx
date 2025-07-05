@@ -7,7 +7,8 @@ import {
   Package, 
   Activity, 
   Shield,
-  AlertCircle
+  AlertCircle,
+  Key
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
@@ -16,7 +17,7 @@ export default function StatsCards() {
   const { data: stats, isLoading, error } = useQuery({
     queryKey: ['dashboard', 'stats'],
     queryFn: () => apiClient.getDashboardStats(),
-    select: (data) => data.data,
+    select: (data) => data.stats,
     retry: false, // Don't retry on error
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
@@ -87,7 +88,7 @@ export default function StatsCards() {
         <CardContent>
           <div className="text-2xl font-bold">{stats.totalUsers}</div>
           <p className="text-xs text-muted-foreground">
-            {stats.activeUsers} active users
+            {stats.totalToolAuthenticated} tool authenticated
           </p>
         </CardContent>
       </Card>
@@ -133,7 +134,10 @@ export default function StatsCards() {
             )}
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Last updated: {new Date(stats.lastUpdated).toLocaleTimeString()}
+            {stats.lastUpdated ? 
+              `Last updated: ${new Date(stats.lastUpdated).toLocaleTimeString()}` :
+              'Real-time monitoring'
+            }
           </p>
         </CardContent>
       </Card>

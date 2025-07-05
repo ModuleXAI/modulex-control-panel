@@ -1,4 +1,4 @@
-import { ApiResponse, ApiError, ModuleXStats } from '@/types/api';
+import { ApiResponse, ApiError, ModuleXStats, DashboardStatsResponse } from '@/types/api';
 import { Tool } from '@/types/tools';
 
 class ApiClient {
@@ -30,7 +30,7 @@ class ApiClient {
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
-  ): Promise<ApiResponse<T>> {
+  ): Promise<T> {
     const url = `${this.hostAddress || this.baseUrl}${endpoint}`;
     
     const config: RequestInit = {
@@ -107,7 +107,7 @@ class ApiClient {
       this.apiKey = apiKey;
       
       console.log('🔍 Making request to /system/validate-key');
-      const result = await this.request<boolean>('/system/validate-key');
+      const result = await this.request<ApiResponse<boolean>>('/system/validate-key');
       
       // Only set credentials permanently if request succeeds
       this.setCredentials(hostAddress, apiKey);
@@ -125,29 +125,29 @@ class ApiClient {
 
   // Tools
   async getAvailableTools(): Promise<ApiResponse<Tool[]>> {
-    return this.request<Tool[]>('/integrations/available');
+    return this.request<ApiResponse<Tool[]>>('/integrations/available');
   }
 
   async getInstalledTools(): Promise<ApiResponse<Tool[]>> {
-    return this.request<Tool[]>('/integrations/installed');
+    return this.request<ApiResponse<Tool[]>>('/integrations/installed');
   }
 
   async installTool(toolId: string): Promise<ApiResponse<Tool>> {
-    return this.request<Tool>(`/integrations/${toolId}/install`, {
+    return this.request<ApiResponse<Tool>>(`/integrations/${toolId}/install`, {
       method: 'POST',
     });
   }
 
   async updateToolConfig(toolId: string, config: Record<string, any>): Promise<ApiResponse<Tool>> {
-    return this.request<Tool>(`/integrations/${toolId}/config`, {
+    return this.request<ApiResponse<Tool>>(`/integrations/${toolId}/config`, {
       method: 'PUT',
       body: JSON.stringify(config),
     });
   }
 
   // Dashboard
-  async getDashboardStats(): Promise<ApiResponse<ModuleXStats>> {
-    return this.request<ModuleXStats>('/dashboard/stats');
+  async getDashboardStats(): Promise<DashboardStatsResponse> {
+    return this.request<DashboardStatsResponse>('/dashboard/stats');
   }
 }
 

@@ -5,6 +5,11 @@ export interface ApiResponse<T> {
   errors?: Record<string, string[]>;
 }
 
+export interface DashboardStatsResponse {
+  success: boolean;
+  stats: ModuleXStats;
+}
+
 export class ApiError extends Error {
   public code: string;
   public details?: any;
@@ -27,10 +32,10 @@ export interface PaginatedResponse<T> {
 
 export interface ModuleXStats {
   totalUsers: number;
-  activeUsers: number;
+  totalToolAuthenticated: number;
   totalIntegrations: number;
   activeIntegrations: number;
   apiCallsToday: number;
   systemHealth: 'healthy' | 'warning' | 'critical';
-  lastUpdated: string;
+  lastUpdated?: string;
 } 
