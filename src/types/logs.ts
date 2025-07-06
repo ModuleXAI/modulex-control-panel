@@ -4,20 +4,31 @@ export interface LogsResponse {
   success: boolean;
   logs: LogEntry[];
   pagination: {
-    total: number;
+    total_count: number;
     limit: number;
     offset: number;
-    hasMore: boolean;
+    has_next: boolean;
+    has_previous: boolean;
+  };
+  filters: {
+    start_date: string | null;
+    end_date: string | null;
+    log_type: string | null;
+    level: string | null;
   };
 }
 
 export interface LogEntry {
   id: string;
   timestamp: string;
-  type: LogType;
-  level?: LogLevel;
+  log_type: LogType;
+  level: LogLevel;
+  user_id: string | null;
   message: string;
-  data: Record<string, any>; // JSON data from backend
+  success: boolean | null;
+  tool_name: string | null;
+  category: string | null;
+  details: string | null;
 }
 
 export type LogType = 
@@ -31,11 +42,11 @@ export type LogType =
 export type LogLevel = 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL';
 
 export interface LogFilters {
-  type?: LogType;
+  log_type?: LogType;
   level?: LogLevel;
   limit: number;
   offset: number;
   search?: string;
-  startDate?: string;
-  endDate?: string;
+  start_date?: string;
+  end_date?: string;
 } 

@@ -155,11 +155,11 @@ class ApiClient {
   async getLogs(filters: LogFilters): Promise<LogsResponse> {
     const params = new URLSearchParams();
     
-    if (filters.type) params.append('type', filters.type);
+    if (filters.log_type) params.append('log_type', filters.log_type);
     if (filters.level) params.append('level', filters.level);
     if (filters.search) params.append('search', filters.search);
-    if (filters.startDate) params.append('start_date', filters.startDate);
-    if (filters.endDate) params.append('end_date', filters.endDate);
+    if (filters.start_date) params.append('start_date', filters.start_date);
+    if (filters.end_date) params.append('end_date', filters.end_date);
     
     params.append('limit', filters.limit.toString());
     params.append('offset', filters.offset.toString());
