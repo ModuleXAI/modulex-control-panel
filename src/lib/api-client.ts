@@ -1,5 +1,6 @@
 import { ApiResponse, ApiError, ModuleXStats, DashboardStatsResponse } from '@/types/api';
 import { Tool } from '@/types/tools';
+import { LogsResponse, LogFilters } from '@/types/logs';
 
 class ApiClient {
   private baseUrl: string;
@@ -148,6 +149,25 @@ class ApiClient {
   // Dashboard
   async getDashboardStats(): Promise<DashboardStatsResponse> {
     return this.request<DashboardStatsResponse>('/dashboard/stats');
+  }
+
+  // Logs
+  async getLogs(filters: LogFilters): Promise<LogsResponse> {
+    const params = new URLSearchParams();
+    
+    if (filters.type) params.append('type', filters.type);
+    if (filters.level) params.append('level', filters.level);
+    if (filters.search) params.append('search', filters.search);
+    if (filters.startDate) params.append('start_date', filters.startDate);
+    if (filters.endDate) params.append('end_date', filters.endDate);
+    
+    params.append('limit', filters.limit.toString());
+    params.append('offset', filters.offset.toString());
+
+    const queryString = params.toString();
+    const endpoint = `/dashboard/logs${queryString ? `?${queryString}` : ''}`;
+    
+    return this.request<LogsResponse>(endpoint);
   }
 }
 
