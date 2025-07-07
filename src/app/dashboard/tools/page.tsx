@@ -6,9 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Search, Settings, Download, Package, ExternalLink, Clock, User, Grid3X3, List } from 'lucide-react';
-import { useAvailableTools, useInstalledTools, useInstallTool } from '@/hooks/use-tools';
+import { useAvailableTools, useInstalledTools } from '@/hooks/use-tools';
 import { Tool } from '@/types/tools';
 import { ConfigureToolDialog } from '@/components/tools/configure-tool-dialog';
+import { InstallToolDialog } from '@/components/tools/install-tool-dialog';
 
 export default function ToolsPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -17,17 +18,6 @@ export default function ToolsPage() {
   
   const { data: availableTools, isLoading: loadingAvailable } = useAvailableTools();
   const { data: installedTools, isLoading: loadingInstalled } = useInstalledTools();
-  const installTool = useInstallTool();
-
-  const handleInstall = async (toolId: number) => {
-    try {
-      await installTool.mutateAsync(toolId);
-    } catch (error) {
-      console.error('Failed to install tool:', error);
-    }
-  };
-
-
 
   // Create a combined list with installation status
   // Available tools are already not-installed, so we don't need to filter them
@@ -216,15 +206,12 @@ export default function ToolsPage() {
                         </Button>
                       </ConfigureToolDialog>
                     ) : (
-                      <Button 
-                        size="sm" 
-                        className="flex-1"
-                        onClick={() => handleInstall(tool.id)}
-                        disabled={installTool.isPending}
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        {installTool.isPending ? 'Installing...' : 'Install'}
-                      </Button>
+                      <InstallToolDialog tool={tool}>
+                        <Button size="sm" className="flex-1">
+                          <Download className="h-4 w-4 mr-2" />
+                          Install
+                        </Button>
+                      </InstallToolDialog>
                     )}
                     
                     {/* Documentation link if available */}
@@ -284,14 +271,12 @@ export default function ToolsPage() {
                         </Button>
                       </ConfigureToolDialog>
                     ) : (
-                      <Button 
-                        size="sm"
-                        onClick={() => handleInstall(tool.id)}
-                        disabled={installTool.isPending}
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        {installTool.isPending ? 'Installing...' : 'Install'}
-                      </Button>
+                      <InstallToolDialog tool={tool}>
+                        <Button size="sm">
+                          <Download className="h-4 w-4 mr-2" />
+                          Install
+                        </Button>
+                      </InstallToolDialog>
                     )}
                     
                     {/* Documentation link if available */}

@@ -21,7 +21,8 @@ export const useInstallTool = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (toolId: number) => apiClient.installTool(toolId),
+    mutationFn: ({ toolName, config }: { toolName: string; config?: Record<string, any> }) => 
+      apiClient.installTool(toolName, config),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tools'] });
     },

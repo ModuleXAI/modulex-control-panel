@@ -133,9 +133,15 @@ class ApiClient {
     return this.request<ToolsResponse>('/integrations/installed');
   }
 
-  async installTool(toolId: number): Promise<ApiResponse<Tool>> {
-    return this.request<ApiResponse<Tool>>(`/integrations/${toolId}/install`, {
+  async installTool(toolName: string, config?: Record<string, any>): Promise<ApiResponse<Tool>> {
+    const body = JSON.stringify({
+      tool_name: toolName,
+      config_data: config || {}
+    });
+    
+    return this.request<ApiResponse<Tool>>('/integrations/install', {
       method: 'POST',
+      body,
     });
   }
 
