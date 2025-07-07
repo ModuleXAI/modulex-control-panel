@@ -139,10 +139,12 @@ class ApiClient {
     });
   }
 
-  async updateToolConfig(toolId: number, config: Record<string, any>): Promise<ApiResponse<Tool>> {
-    return this.request<ApiResponse<Tool>>(`/integrations/${toolId}/config`, {
+  async updateToolConfig(toolName: string, config: Record<string, any>): Promise<ApiResponse<any>> {
+    return this.request<ApiResponse<any>>(`/integrations/${toolName}/config`, {
       method: 'PUT',
-      body: JSON.stringify(config),
+      body: JSON.stringify({
+        config_data: config
+      }),
     });
   }
 

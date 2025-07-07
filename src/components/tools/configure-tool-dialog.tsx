@@ -31,6 +31,8 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { Tool } from '@/types/tools';
+import { useUpdateToolConfig } from '@/hooks/use-tools';
+import { toast } from 'sonner';
 
 interface ConfigureToolDialogProps {
   tool: Tool;
@@ -40,22 +42,23 @@ interface ConfigureToolDialogProps {
 export function ConfigureToolDialog({ tool, children }: ConfigureToolDialogProps) {
   const [open, setOpen] = useState(false);
   const [envVars, setEnvVars] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(false);
+  
+  const updateToolConfig = useUpdateToolConfig();
 
   const handleSave = async () => {
-    setIsLoading(true);
     try {
-      // TODO: Implement actual save functionality
-      console.log('Saving configuration for tool:', tool.id, envVars);
+      console.log('🔧 Saving configuration for tool:', tool.name, envVars);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await updateToolConfig.mutateAsync({
+        toolName: tool.name,
+        config: envVars
+      });
       
+      toast.success('Configuration saved successfully!');
       setOpen(false);
     } catch (error) {
-      console.error('Failed to save configuration:', error);
-    } finally {
-      setIsLoading(false);
+      console.error('❌ Failed to save configuration:', error);
+      toast.error('Failed to save configuration. Please try again.');
     }
   };
 
@@ -172,9 +175,9 @@ export function ConfigureToolDialog({ tool, children }: ConfigureToolDialogProps
                 <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setOpen(false)}>
                   Cancel
                 </Button>
-                <Button size="sm" className="h-7 text-xs" onClick={handleSave} disabled={isLoading}>
+                <Button size="sm" className="h-7 text-xs" onClick={handleSave} disabled={updateToolConfig.isPending}>
                   <Save className="h-3 w-3 mr-1" />
-                  {isLoading ? 'Saving...' : 'Save Config'}
+                  {updateToolConfig.isPending ? 'Saving...' : 'Save Config'}
                 </Button>
               </div>
             )}

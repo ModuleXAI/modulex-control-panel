@@ -32,8 +32,8 @@ export const useUpdateToolConfig = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ toolId, config }: { toolId: number; config: Record<string, any> }) =>
-      apiClient.updateToolConfig(toolId, config),
+    mutationFn: ({ toolName, config }: { toolName: string; config: Record<string, any> }) =>
+      apiClient.updateToolConfig(toolName, config),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tools'] });
     },
