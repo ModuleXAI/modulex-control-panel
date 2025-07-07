@@ -1,5 +1,5 @@
 import { ApiResponse, ApiError, ModuleXStats, DashboardStatsResponse } from '@/types/api';
-import { Tool } from '@/types/tools';
+import { Tool, ToolsResponse } from '@/types/tools';
 import { LogsResponse, LogFilters } from '@/types/logs';
 
 class ApiClient {
@@ -125,21 +125,21 @@ class ApiClient {
   }
 
   // Tools
-  async getAvailableTools(): Promise<ApiResponse<Tool[]>> {
-    return this.request<ApiResponse<Tool[]>>('/integrations/available');
+  async getAvailableTools(): Promise<ToolsResponse> {
+    return this.request<ToolsResponse>('/integrations/not-installed');
   }
 
-  async getInstalledTools(): Promise<ApiResponse<Tool[]>> {
-    return this.request<ApiResponse<Tool[]>>('/integrations/installed');
+  async getInstalledTools(): Promise<ToolsResponse> {
+    return this.request<ToolsResponse>('/integrations/installed');
   }
 
-  async installTool(toolId: string): Promise<ApiResponse<Tool>> {
+  async installTool(toolId: number): Promise<ApiResponse<Tool>> {
     return this.request<ApiResponse<Tool>>(`/integrations/${toolId}/install`, {
       method: 'POST',
     });
   }
 
-  async updateToolConfig(toolId: string, config: Record<string, any>): Promise<ApiResponse<Tool>> {
+  async updateToolConfig(toolId: number, config: Record<string, any>): Promise<ApiResponse<Tool>> {
     return this.request<ApiResponse<Tool>>(`/integrations/${toolId}/config`, {
       method: 'PUT',
       body: JSON.stringify(config),

@@ -1,25 +1,39 @@
 export interface Tool {
-  id: string;
+  id: number;
+  name: string;
+  display_name: string;
+  description: string;
+  author: string;
+  version: string;
+  actions?: ToolAction[];
+  enabled_actions?: ToolAction[];
+  disabled_actions?: ToolAction[];
+  environment_variables?: EnvironmentVariable[];
+  setup_environment_variables?: Record<string, string> | EnvironmentVariable[];
+  created_at: string;
+  updated_at: string;
+  installed_at?: string;
+}
+
+export interface ToolAction {
   name: string;
   description: string;
-  category: string;
-  version: string;
-  isInstalled: boolean;
-  isEnabled: boolean;
-  configurationRequired: boolean;
-  icon?: string;
-  author: string;
-  createdAt: string;
-  updatedAt: string;
-  environmentVariables?: EnvironmentVariable[];
 }
 
 export interface EnvironmentVariable {
-  key: string;
-  value: string;
+  name: string;
+  about_url?: string;
   description: string;
-  required: boolean;
-  type: 'string' | 'number' | 'boolean' | 'url' | 'secret';
+  sample_format: string;
+  value?: string;
+  required?: boolean;
+  type?: 'string' | 'number' | 'boolean' | 'url' | 'secret';
+}
+
+export interface ToolsResponse {
+  success: boolean;
+  tools: Tool[];
+  total: number;
 }
 
 export interface ToolSearchFilters {

@@ -19,7 +19,7 @@ import {
   Briefcase,
   AlertTriangle,
   Settings,
-  Eye
+  ClipboardList
 } from 'lucide-react';
 import { useLogs } from '@/hooks/use-logs';
 import { LogFilters, LogType, LogLevel, LogEntry } from '@/types/logs';
@@ -30,7 +30,7 @@ const LOG_TYPE_ICONS = {
   business: Briefcase,
   error: AlertTriangle,
   system: Settings,
-  audit: Eye,
+  audit: ClipboardList,
 };
 
 const LOG_LEVEL_COLORS = {
@@ -101,34 +101,37 @@ export default function LogsSection() {
     const isExpanded = expandedLog === log.id;
 
     return (
-      <div key={log.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+      <div 
+        key={log.id} 
+        className="border rounded-md p-2 hover:bg-gray-50 transition-colors cursor-pointer"
+        onClick={() => setExpandedLog(isExpanded ? null : log.id)}
+      >
         <div className="flex items-start justify-between">
-          <div className="flex items-start space-x-3 flex-1">
-            <IconComponent className="h-5 w-5 text-gray-500 mt-0.5" />
+          <div className="flex items-start space-x-1.5 flex-1 min-w-0">
+            <IconComponent className="h-3.5 w-3.5 text-gray-500 mt-0.5 flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <div className="flex items-center space-x-2 mb-1">
-                <Badge variant="outline" className="text-xs">
+              <div className="flex items-center space-x-1 mb-1">
+                <Badge variant="outline" className="text-xs px-1 py-0 h-4 text-xs">
                   {log.log_type}
                 </Badge>
-                <Badge className={`text-xs ${LOG_LEVEL_COLORS[log.level]}`}>
+                <Badge className={`text-xs px-1 py-0 h-4 text-xs ${LOG_LEVEL_COLORS[log.level]}`}>
                   {log.level}
                 </Badge>
                 {log.success !== null && (
-                  <Badge variant={log.success ? "default" : "destructive"} className="text-xs">
+                  <Badge variant={log.success ? "default" : "destructive"} className={`text-xs px-1 py-0 h-4 text-xs ${log.success ? 'bg-green-100 text-green-800' : ''}`}>
                     {log.success ? 'Success' : 'Failed'}
                   </Badge>
                 )}
                 {log.category && (
-                  <Badge variant="secondary" className="text-xs">
+                  <Badge variant="secondary" className="text-xs px-1 py-0 h-4 text-xs">
                     {log.category}
                   </Badge>
                 )}
-              </div>
-              <p className="text-sm font-medium text-gray-900 mb-1">
+                              </div>
+              <p className="text-sm font-medium text-gray-900 mb-0.5 line-clamp-1">
                 {log.message}
               </p>
-              <div className="flex items-center space-x-4 text-xs text-gray-500">
-                <span>{formatTimestamp(log.timestamp)}</span>
+              <div className="flex items-center space-x-2 text-xs text-gray-500">
                 {log.tool_name && (
                   <span>Tool: {log.tool_name}</span>
                 )}
@@ -138,20 +141,17 @@ export default function LogsSection() {
               </div>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setExpandedLog(isExpanded ? null : log.id)}
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
+          
+          <div className="text-xs text-gray-500 text-right flex-shrink-0 ml-2">
+            {formatTimestamp(log.timestamp)}
+          </div>
         </div>
         
         {isExpanded && (
-          <div className="mt-3 pt-3 border-t">
-            <div className="bg-gray-50 rounded p-3">
-              <h4 className="text-sm font-medium mb-2">Log Details</h4>
-              <div className="space-y-1 text-xs">
+          <div className="mt-1.5 pt-1.5 border-t">
+            <div className="bg-gray-50 rounded p-1.5">
+              <h4 className="text-xs font-medium mb-0.5">Details</h4>
+              <div className="space-y-0.5 text-xs">
                 <div><strong>ID:</strong> {log.id}</div>
                 <div><strong>Timestamp:</strong> {log.timestamp}</div>
                 <div><strong>Type:</strong> {log.log_type}</div>
@@ -193,11 +193,11 @@ export default function LogsSection() {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="pb-3">
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <FileText className="h-5 w-5" />
-            <span>Logs</span>
+            <FileText className="h-4 w-4" />
+            <span className="text-base">Logs</span>
           </div>
           <Button
             variant="outline"
@@ -205,30 +205,30 @@ export default function LogsSection() {
             onClick={() => refetch()}
             disabled={isLoading}
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
+            <RefreshCw className={`h-3 w-3 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
+            <span className="text-xs">Refresh</span>
           </Button>
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0">
         {/* Filters */}
-        <div className="flex flex-wrap items-center gap-4 mb-6">
+        <div className="flex flex-wrap items-center gap-3 mb-4">
           <div className="flex items-center space-x-2">
-            <Search className="h-4 w-4 text-gray-400" />
+            <Search className="h-3 w-3 text-gray-400" />
             <Input
               placeholder="Search logs..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-              className="w-64"
+              className="w-48 h-8 text-xs"
             />
-            <Button onClick={handleSearch} size="sm">
+            <Button onClick={handleSearch} size="sm" className="h-8 text-xs">
               Search
             </Button>
           </div>
           
           <Select value={filters.log_type || 'all'} onValueChange={handleTypeFilter}>
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="w-28 h-8 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -243,7 +243,7 @@ export default function LogsSection() {
           </Select>
 
           <Select value={filters.level || 'all'} onValueChange={handleLevelFilter}>
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="w-28 h-8 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -257,28 +257,28 @@ export default function LogsSection() {
         </div>
 
         {/* Logs List */}
-        <ScrollArea className="h-96">
+        <ScrollArea className="h-80">
           {isLoading ? (
-            <div className="space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="border rounded-lg p-4 animate-pulse">
-                  <div className="flex items-start space-x-3">
-                    <div className="h-5 w-5 bg-gray-200 rounded"></div>
-                    <div className="flex-1 space-y-2">
-                      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                      <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+            <div className="space-y-1.5">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="border rounded-md p-2 animate-pulse">
+                  <div className="flex items-start space-x-2">
+                    <div className="h-3.5 w-3.5 bg-gray-200 rounded"></div>
+                    <div className="flex-1 space-y-1">
+                      <div className="h-3 bg-gray-200 rounded w-3/4"></div>
+                      <div className="h-2 bg-gray-200 rounded w-1/2"></div>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
           ) : data?.logs.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-              <p>No logs found matching your criteria.</p>
+            <div className="text-center py-6 text-gray-500">
+              <FileText className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+              <p className="text-xs">No logs found matching your criteria.</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-1.5">
               {data?.logs.map(renderLogEntry)}
             </div>
           )}
@@ -286,8 +286,8 @@ export default function LogsSection() {
 
         {/* Pagination */}
         {data && data.logs.length > 0 && (
-          <div className="flex items-center justify-between mt-6 pt-4 border-t">
-            <div className="text-sm text-gray-500">
+          <div className="flex items-center justify-between mt-4 pt-3 border-t">
+            <div className="text-xs text-gray-500">
               Showing {data.pagination.offset + 1} to {Math.min(data.pagination.offset + data.pagination.limit, data.pagination.total_count)} of {data.pagination.total_count} logs
             </div>
             <div className="flex items-center space-x-2">
@@ -296,8 +296,9 @@ export default function LogsSection() {
                 size="sm"
                 onClick={handlePreviousPage}
                 disabled={!data.pagination.has_previous}
+                className="h-7 text-xs"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-3 w-3" />
                 Previous
               </Button>
               <Button
@@ -305,9 +306,10 @@ export default function LogsSection() {
                 size="sm"
                 onClick={handleNextPage}
                 disabled={!data.pagination.has_next}
+                className="h-7 text-xs"
               >
                 Next
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-3 w-3" />
               </Button>
             </div>
           </div>

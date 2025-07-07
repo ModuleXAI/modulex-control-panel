@@ -5,7 +5,7 @@ export const useAvailableTools = () => {
   return useQuery({
     queryKey: ['tools', 'available'],
     queryFn: () => apiClient.getAvailableTools(),
-    select: (data) => data.data,
+    select: (data) => data.tools,
   });
 };
 
@@ -13,7 +13,7 @@ export const useInstalledTools = () => {
   return useQuery({
     queryKey: ['tools', 'installed'],
     queryFn: () => apiClient.getInstalledTools(),
-    select: (data) => data.data,
+    select: (data) => data.tools,
   });
 };
 
@@ -21,7 +21,7 @@ export const useInstallTool = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (toolId: string) => apiClient.installTool(toolId),
+    mutationFn: (toolId: number) => apiClient.installTool(toolId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tools'] });
     },
@@ -32,7 +32,7 @@ export const useUpdateToolConfig = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ toolId, config }: { toolId: string; config: Record<string, any> }) =>
+    mutationFn: ({ toolId, config }: { toolId: number; config: Record<string, any> }) =>
       apiClient.updateToolConfig(toolId, config),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tools'] });

@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Search, Settings, Download } from 'lucide-react';
+import { Search, Settings, Download, Package, ExternalLink, Clock, User } from 'lucide-react';
 import { useAvailableTools, useInstalledTools, useInstallTool } from '@/hooks/use-tools';
+import { Tool } from '@/types/tools';
 
 export default function ToolsPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -16,7 +17,7 @@ export default function ToolsPage() {
   const { data: installedTools, isLoading: loadingInstalled } = useInstalledTools();
   const installTool = useInstallTool();
 
-  const handleInstall = async (toolId: string) => {
+  const handleInstall = async (toolId: number) => {
     try {
       await installTool.mutateAsync(toolId);
     } catch (error) {
@@ -24,9 +25,16 @@ export default function ToolsPage() {
     }
   };
 
-  const allTools = [...(installedTools || []), ...(availableTools || [])];
+  // Create a combined list with installation status
+  // Available tools are already not-installed, so we don't need to filter them
+  const allTools: (Tool & { isInstalled: boolean })[] = [
+    ...(installedTools || []).map(tool => ({ ...tool, isInstalled: true })),
+    ...(availableTools || []).map(tool => ({ ...tool, isInstalled: false }))
+  ];
+
   const filteredTools = allTools.filter(tool => {
-    const matchesSearch = tool.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = tool.display_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         tool.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = filter === 'all' || 
       (filter === 'installed' && tool.isInstalled) ||
       (filter === 'available' && !tool.isInstalled);
@@ -34,7 +42,7 @@ export default function ToolsPage() {
     return matchesSearch && matchesFilter;
   });
 
-  if (loadingAvailable || loadingInstalled) {
+  if (loadingAvailable) {
     return (
       <div className="space-y-6">
         <div className="animate-pulse">
@@ -84,19 +92,19 @@ export default function ToolsPage() {
             variant={filter === 'all' ? 'default' : 'outline'}
             onClick={() => setFilter('all')}
           >
-            All
+            All ({allTools.length})
           </Button>
           <Button
             variant={filter === 'installed' ? 'default' : 'outline'}
             onClick={() => setFilter('installed')}
           >
-            Installed
+            Installed ({installedTools?.length || 0})
           </Button>
           <Button
             variant={filter === 'available' ? 'default' : 'outline'}
             onClick={() => setFilter('available')}
           >
-            Available
+            Available ({allTools.filter(tool => !tool.isInstalled).length})
           </Button>
         </div>
       </div>
@@ -106,13 +114,16 @@ export default function ToolsPage() {
           <Card key={tool.id} className="hover:shadow-lg transition-shadow">
             <CardHeader>
               <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle className="text-lg">{tool.name}</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-1">
+                <div className="flex-1">
+                  <CardTitle className="text-lg flex items-center space-x-2">
+                    <Package className="h-5 w-5 text-blue-600" />
+                    <span>{tool.display_name}</span>
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground mt-2">
                     {tool.description}
                   </p>
                 </div>
-                <Badge variant={tool.isInstalled ? 'default' : 'secondary'}>
+                <Badge variant={tool.isInstalled ? 'default' : 'secondary'} className="ml-2">
                   {tool.isInstalled ? 'Installed' : 'Available'}
                 </Badge>
               </div>
@@ -120,19 +131,52 @@ export default function ToolsPage() {
             <CardContent>
               <div className="space-y-4">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Version</span>
-                  <span>{tool.version}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Category</span>
-                  <Badge variant="outline">{tool.category}</Badge>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Author</span>
-                  <span>{tool.author}</span>
+                  <div className="flex items-center space-x-1">
+                    <User className="h-3 w-3 text-gray-400" />
+                    <span className="text-muted-foreground">Author</span>
+                  </div>
+                  <span className="font-medium">{tool.author}</span>
                 </div>
                 
-                <div className="flex space-x-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Version</span>
+                  <Badge variant="outline" className="text-xs">{tool.version}</Badge>
+                </div>
+
+                {tool.isInstalled && tool.installed_at && (
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center space-x-1">
+                      <Clock className="h-3 w-3 text-gray-400" />
+                      <span className="text-muted-foreground">Installed</span>
+                    </div>
+                    <span className="text-xs">
+                      {new Date(tool.installed_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                )}
+
+                {/* Actions count */}
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Actions</span>
+                  <span className="font-medium">
+                    {tool.actions?.length || tool.enabled_actions?.length || 0} available
+                  </span>
+                </div>
+
+                {/* Environment variables count */}
+                {(tool.environment_variables || tool.setup_environment_variables) && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Config vars</span>
+                    <span className="font-medium">
+                      {Array.isArray(tool.setup_environment_variables) 
+                        ? tool.setup_environment_variables.length
+                        : Object.keys(tool.setup_environment_variables || {}).length
+                      } required
+                    </span>
+                  </div>
+                )}
+                
+                <div className="flex space-x-2 pt-2">
                   {tool.isInstalled ? (
                     <Button size="sm" className="flex-1">
                       <Settings className="h-4 w-4 mr-2" />
@@ -146,7 +190,18 @@ export default function ToolsPage() {
                       disabled={installTool.isPending}
                     >
                       <Download className="h-4 w-4 mr-2" />
-                      Install
+                      {installTool.isPending ? 'Installing...' : 'Install'}
+                    </Button>
+                  )}
+                  
+                  {/* Documentation link if available */}
+                  {tool.environment_variables?.[0]?.about_url && (
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => window.open(tool.environment_variables[0].about_url, '_blank')}
+                    >
+                      <ExternalLink className="h-4 w-4" />
                     </Button>
                   )}
                 </div>
@@ -158,6 +213,7 @@ export default function ToolsPage() {
 
       {filteredTools.length === 0 && (
         <div className="text-center py-12">
+          <Package className="h-12 w-12 mx-auto text-gray-300 mb-4" />
           <p className="text-muted-foreground">No tools found matching your criteria.</p>
         </div>
       )}
