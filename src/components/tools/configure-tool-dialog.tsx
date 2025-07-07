@@ -68,7 +68,8 @@ export function ConfigureToolDialog({ tool, children }: ConfigureToolDialogProps
       name: key,
       description: typeof value === 'string' ? value : '',
       required: true,
-      sample_format: ''
+      sample_format: '',
+      about_url: undefined
     }));
 
   return (
@@ -79,7 +80,18 @@ export function ConfigureToolDialog({ tool, children }: ConfigureToolDialogProps
       <DialogContent className="max-w-3xl h-[60vh] flex flex-col overflow-hidden">
         <DialogHeader className="pb-3">
           <DialogTitle className="flex items-center space-x-2 text-base">
-            <Package className="h-4 w-4 text-blue-600" />
+            {tool.logo ? (
+              <img 
+                src={tool.logo} 
+                alt={tool.display_name}
+                className="h-5 w-5 rounded"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            ) : (
+              <Package className="h-4 w-4 text-blue-600" />
+            )}
             <span>Configure {tool.display_name}</span>
           </DialogTitle>
           <DialogDescription className="text-xs">
@@ -267,18 +279,47 @@ export function ConfigureToolDialog({ tool, children }: ConfigureToolDialogProps
                       </div>
                     </div>
                   )}
+                  
+                  {tool.app_url && (
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium">Website</Label>
+                      <div className="flex items-center space-x-1.5">
+                        <ExternalLink className="h-3.5 w-3.5 text-gray-400" />
+                        <a 
+                          href={tool.app_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-blue-600 hover:underline"
+                        >
+                          {tool.app_url}
+                        </a>
+                      </div>
+                    </div>
+                  )}
                 </div>
+                
+                {/* Categories */}
+                {tool.categories && tool.categories.length > 0 && (
+                  <>
+                    <Separator />
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium">Categories</Label>
+                      <div className="flex flex-wrap gap-1">
+                        {tool.categories.map((category) => (
+                          <Badge key={category.id} variant="outline" className="text-xs">
+                            {category.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
                 
                 <Separator />
                 
                 <div className="space-y-1">
                   <Label className="text-xs font-medium">Description</Label>
                   <p className="text-sm text-muted-foreground leading-relaxed">{tool.description}</p>
-                </div>
-                
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium">Tool ID</Label>
-                  <code className="text-xs bg-gray-100 px-2 py-1 rounded">{tool.id}</code>
                 </div>
               </CardContent>
             </Card>

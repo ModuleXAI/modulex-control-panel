@@ -5,6 +5,9 @@ export interface Tool {
   description: string;
   author: string;
   version: string;
+  logo?: string;
+  app_url?: string;
+  categories?: ToolCategory[];
   actions?: ToolAction[];
   enabled_actions?: ToolAction[];
   disabled_actions?: ToolAction[];
@@ -13,6 +16,11 @@ export interface Tool {
   created_at: string;
   updated_at: string;
   installed_at?: string;
+}
+
+export interface ToolCategory {
+  id: string;
+  name: string;
 }
 
 export interface ToolAction {

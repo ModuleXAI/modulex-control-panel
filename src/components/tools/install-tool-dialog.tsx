@@ -78,7 +78,18 @@ export function InstallToolDialog({ tool, children }: InstallToolDialogProps) {
       <DialogContent className="max-w-3xl h-[60vh] flex flex-col overflow-hidden">
         <DialogHeader className="pb-3">
           <DialogTitle className="flex items-center space-x-2 text-base">
-            <Package className="h-4 w-4 text-blue-600" />
+            {tool.logo ? (
+              <img 
+                src={tool.logo} 
+                alt={tool.display_name}
+                className="h-5 w-5 rounded"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            ) : (
+              <Package className="h-4 w-4 text-blue-600" />
+            )}
             <span>Install {tool.display_name}</span>
           </DialogTitle>
           <DialogDescription className="text-xs">
@@ -233,7 +244,7 @@ export function InstallToolDialog({ tool, children }: InstallToolDialogProps) {
                       <span>Tool Information</span>
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-3 pt-0 -mt-1">
+                  <CardContent className="space-y-3 pt-0 -mt-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div className="space-y-1">
                         <Label className="text-xs font-medium">Display Name</Label>
@@ -253,14 +264,40 @@ export function InstallToolDialog({ tool, children }: InstallToolDialogProps) {
                         </div>
                       </div>
                       
-                      <div className="space-y-1">
-                        <Label className="text-xs font-medium">Actions Count</Label>
-                        <div className="flex items-center space-x-1.5">
-                          <Activity className="h-3.5 w-3.5 text-gray-400" />
-                          <span className="text-sm">{tool.actions?.length || tool.enabled_actions?.length || 0} available</span>
+                      {tool.app_url && (
+                        <div className="space-y-1">
+                          <Label className="text-xs font-medium">Website</Label>
+                          <div className="flex items-center space-x-1.5">
+                            <ExternalLink className="h-3.5 w-3.5 text-gray-400" />
+                            <a 
+                              href={tool.app_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-blue-600 hover:underline"
+                            >
+                              {tool.app_url}
+                            </a>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
+                    
+                    {/* Categories */}
+                    {tool.categories && tool.categories.length > 0 && (
+                      <>
+                        <Separator />
+                        <div className="space-y-2">
+                          <Label className="text-xs font-medium">Categories</Label>
+                          <div className="flex flex-wrap gap-1">
+                            {tool.categories.map((category) => (
+                              <Badge key={category.id} variant="outline" className="text-xs">
+                                {category.name}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
                     
                     <Separator />
                     
@@ -269,29 +306,14 @@ export function InstallToolDialog({ tool, children }: InstallToolDialogProps) {
                       <p className="text-sm text-muted-foreground leading-relaxed">{tool.description}</p>
                     </div>
                     
-                    <div className="space-y-1">
-                      <Label className="text-xs font-medium">Tool ID</Label>
-                      <code className="text-xs bg-gray-100 px-2 py-1 rounded">{tool.id}</code>
-                    </div>
-
+                    {/* Required Configuration Preview */}
                     {envVarsList.length > 0 && (
-                      <>
-                        <Separator />
-                        <div className="space-y-1">
-                          <Label className="text-xs font-medium">Required Configuration</Label>
-                          <div className="space-y-1">
-                            {envVarsList.map((envVar, index) => (
-                              <div key={index} className="flex items-center space-x-2 text-xs">
-                                <Key className="h-3 w-3 text-gray-400" />
-                                <span className="font-mono">{envVar.name}</span>
-                                {envVar.required && (
-                                  <Badge variant="destructive" className="text-xs px-1 py-0">Required</Badge>
-                                )}
-                              </div>
-                            ))}
-                          </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs font-medium">Required Configuration</Label>
+                        <div className="text-sm text-muted-foreground">
+                          {envVarsList.length} environment variable{envVarsList.length !== 1 ? 's' : ''} required
                         </div>
-                      </>
+                      </div>
                     )}
                   </CardContent>
                 </Card>

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Search, Settings, Download, Package, ExternalLink, Clock, User, Grid3X3, List } from 'lucide-react';
+import { Search, Settings, Download, Package, ExternalLink, Clock, User, Grid3X3, List, Globe } from 'lucide-react';
 import { useAvailableTools, useInstalledTools } from '@/hooks/use-tools';
 import { Tool } from '@/types/tools';
 import { ConfigureToolDialog } from '@/components/tools/configure-tool-dialog';
@@ -28,7 +28,8 @@ export default function ToolsPage() {
 
   const filteredTools = allTools.filter(tool => {
     const matchesSearch = tool.display_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         tool.description.toLowerCase().includes(searchTerm.toLowerCase());
+                         tool.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         tool.categories?.some(cat => cat.name.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesFilter = filter === 'all' || 
       (filter === 'installed' && tool.isInstalled) ||
       (filter === 'available' && !tool.isInstalled);
@@ -134,10 +135,21 @@ export default function ToolsPage() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <CardTitle className="text-lg flex items-center space-x-2">
-                      <Package className="h-5 w-5 text-blue-600" />
+                      {tool.logo ? (
+                        <img 
+                          src={tool.logo} 
+                          alt={tool.display_name}
+                          className="h-6 w-6 rounded"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <Package className="h-5 w-5 text-blue-600" />
+                      )}
                       <span>{tool.display_name}</span>
                     </CardTitle>
-                    <p className="text-sm text-muted-foreground mt-2">
+                    <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
                       {tool.description}
                     </p>
                   </div>
@@ -148,6 +160,22 @@ export default function ToolsPage() {
                     {tool.isInstalled ? 'Installed' : 'Ready to Install'}
                   </Badge>
                 </div>
+                
+                {/* Categories */}
+                {tool.categories && tool.categories.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {tool.categories.slice(0, 2).map((category) => (
+                      <Badge key={category.id} variant="outline" className="text-xs">
+                        {category.name}
+                      </Badge>
+                    ))}
+                    {tool.categories.length > 2 && (
+                      <Badge variant="outline" className="text-xs">
+                        +{tool.categories.length - 2}
+                      </Badge>
+                    )}
+                  </div>
+                )}
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -214,12 +242,25 @@ export default function ToolsPage() {
                       </InstallToolDialog>
                     )}
                     
+                    {/* App URL link if available */}
+                    {tool.app_url && (
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => window.open(tool.app_url, '_blank')}
+                        title="Visit website"
+                      >
+                        <Globe className="h-4 w-4" />
+                      </Button>
+                    )}
+                    
                     {/* Documentation link if available */}
                     {tool.environment_variables?.[0]?.about_url && (
                       <Button 
                         size="sm" 
                         variant="outline"
                         onClick={() => window.open(tool.environment_variables[0].about_url, '_blank')}
+                        title="Documentation"
                       >
                         <ExternalLink className="h-4 w-4" />
                       </Button>
@@ -238,7 +279,18 @@ export default function ToolsPage() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4 flex-1">
-                    <Package className="h-8 w-8 text-blue-600 flex-shrink-0" />
+                    {tool.logo ? (
+                      <img 
+                        src={tool.logo} 
+                        alt={tool.display_name}
+                        className="h-10 w-10 rounded flex-shrink-0"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <Package className="h-10 w-10 text-blue-600 flex-shrink-0" />
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-2 mb-1">
                         <h3 className="text-lg font-semibold truncate">{tool.display_name}</h3>
@@ -252,6 +304,23 @@ export default function ToolsPage() {
                       <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
                         {tool.description}
                       </p>
+                      
+                      {/* Categories */}
+                      {tool.categories && tool.categories.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {tool.categories.slice(0, 3).map((category) => (
+                            <Badge key={category.id} variant="outline" className="text-xs">
+                              {category.name}
+                            </Badge>
+                          ))}
+                          {tool.categories.length > 3 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{tool.categories.length - 3}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                      
                       <div className="flex items-center space-x-4 text-xs text-muted-foreground">
                         <span>Author: {tool.author}</span>
                         <span>Version: {tool.version}</span>
@@ -279,12 +348,25 @@ export default function ToolsPage() {
                       </InstallToolDialog>
                     )}
                     
+                    {/* App URL link if available */}
+                    {tool.app_url && (
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => window.open(tool.app_url, '_blank')}
+                        title="Visit website"
+                      >
+                        <Globe className="h-4 w-4" />
+                      </Button>
+                    )}
+                    
                     {/* Documentation link if available */}
                     {tool.environment_variables?.[0]?.about_url && (
                       <Button 
                         size="sm" 
                         variant="outline"
                         onClick={() => window.open(tool.environment_variables[0].about_url, '_blank')}
+                        title="Documentation"
                       >
                         <ExternalLink className="h-4 w-4" />
                       </Button>
