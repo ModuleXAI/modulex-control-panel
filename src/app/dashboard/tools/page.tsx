@@ -136,7 +136,7 @@ export default function ToolsPage() {
         // Grid View
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredTools.map((tool) => (
-            <Card key={tool.id} className="hover:shadow-lg transition-shadow">
+            <Card key={`${tool.id}-${tool.isInstalled ? 'installed' : 'available'}`} className="hover:shadow-lg transition-shadow">
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -242,7 +242,7 @@ export default function ToolsPage() {
         // List View
         <div className="space-y-4">
           {filteredTools.map((tool) => (
-            <Card key={tool.id} className="hover:shadow-md transition-shadow">
+            <Card key={`${tool.id}-${tool.isInstalled ? 'installed' : 'available'}`} className="hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4 flex-1">
