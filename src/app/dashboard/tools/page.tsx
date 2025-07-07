@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Search, Settings, Download, Package, ExternalLink, Clock, User, Grid3X3, List } from 'lucide-react';
 import { useAvailableTools, useInstalledTools, useInstallTool } from '@/hooks/use-tools';
 import { Tool } from '@/types/tools';
+import { ConfigureToolDialog } from '@/components/tools/configure-tool-dialog';
 
 export default function ToolsPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -25,6 +26,8 @@ export default function ToolsPage() {
       console.error('Failed to install tool:', error);
     }
   };
+
+
 
   // Create a combined list with installation status
   // Available tools are already not-installed, so we don't need to filter them
@@ -206,10 +209,12 @@ export default function ToolsPage() {
                   
                   <div className="flex space-x-2 pt-2">
                     {tool.isInstalled ? (
-                      <Button size="sm" className="flex-1">
-                        <Settings className="h-4 w-4 mr-2" />
-                        Configure
-                      </Button>
+                      <ConfigureToolDialog tool={tool}>
+                        <Button size="sm" className="flex-1">
+                          <Settings className="h-4 w-4 mr-2" />
+                          Configure
+                        </Button>
+                      </ConfigureToolDialog>
                     ) : (
                       <Button 
                         size="sm" 
@@ -272,10 +277,12 @@ export default function ToolsPage() {
                   </div>
                   <div className="flex items-center space-x-2 flex-shrink-0">
                     {tool.isInstalled ? (
-                      <Button size="sm">
-                        <Settings className="h-4 w-4 mr-2" />
-                        Configure
-                      </Button>
+                      <ConfigureToolDialog tool={tool}>
+                        <Button size="sm">
+                          <Settings className="h-4 w-4 mr-2" />
+                          Configure
+                        </Button>
+                      </ConfigureToolDialog>
                     ) : (
                       <Button 
                         size="sm"
