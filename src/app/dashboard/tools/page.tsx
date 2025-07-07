@@ -104,7 +104,7 @@ export default function ToolsPage() {
             variant={filter === 'available' ? 'default' : 'outline'}
             onClick={() => setFilter('available')}
           >
-            Available ({allTools.filter(tool => !tool.isInstalled).length})
+            Ready to Install ({allTools.filter(tool => !tool.isInstalled).length})
           </Button>
         </div>
       </div>
@@ -123,8 +123,11 @@ export default function ToolsPage() {
                     {tool.description}
                   </p>
                 </div>
-                <Badge variant={tool.isInstalled ? 'default' : 'secondary'} className="ml-2">
-                  {tool.isInstalled ? 'Installed' : 'Available'}
+                <Badge 
+                  variant={tool.isInstalled ? 'default' : 'secondary'} 
+                  className={`ml-2 ${tool.isInstalled ? 'bg-green-100 text-green-800' : ''}`}
+                >
+                  {tool.isInstalled ? 'Installed' : 'Ready to Install'}
                 </Badge>
               </div>
             </CardHeader>
