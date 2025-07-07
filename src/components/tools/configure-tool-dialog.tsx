@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Settings, 
   Key, 
@@ -72,47 +73,49 @@ export function ConfigureToolDialog({ tool, children }: ConfigureToolDialogProps
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
-        <DialogHeader>
-          <DialogTitle className="flex items-center space-x-2">
-            <Package className="h-5 w-5 text-blue-600" />
+      <DialogContent className="max-w-3xl h-[60vh] flex flex-col overflow-hidden">
+        <DialogHeader className="pb-3">
+          <DialogTitle className="flex items-center space-x-2 text-base">
+            <Package className="h-4 w-4 text-blue-600" />
             <span>Configure {tool.display_name}</span>
           </DialogTitle>
-          <DialogDescription>
-            Set up environment variables and configure settings for this integration.
+          <DialogDescription className="text-xs">
+            Configure settings and environment variables for this integration.
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="config" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="config" className="flex items-center space-x-2">
-              <Settings className="h-4 w-4" />
-              <span>Configuration</span>
+        <Tabs defaultValue="config" className="w-full flex flex-col flex-1 min-h-0">
+          <TabsList className="grid w-full grid-cols-3 flex-shrink-0 mb-3 h-8">
+            <TabsTrigger value="config" className="flex items-center space-x-1 text-xs h-6">
+              <Settings className="h-3 w-3" />
+              <span>Config</span>
             </TabsTrigger>
-            <TabsTrigger value="actions" className="flex items-center space-x-2">
-              <Activity className="h-4 w-4" />
+            <TabsTrigger value="actions" className="flex items-center space-x-1 text-xs h-6">
+              <Activity className="h-3 w-3" />
               <span>Actions</span>
             </TabsTrigger>
-            <TabsTrigger value="info" className="flex items-center space-x-2">
-              <Info className="h-4 w-4" />
-              <span>Information</span>
+            <TabsTrigger value="info" className="flex items-center space-x-1 text-xs h-6">
+              <Info className="h-3 w-3" />
+              <span>Info</span>
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="config" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Key className="h-4 w-4" />
+          <TabsContent value="config" className="flex-1 min-h-0 overflow-hidden">
+            <ScrollArea className="h-full">
+              <div className="space-y-2 p-1">
+                <Card>
+              <CardHeader className="pb-1">
+                <CardTitle className="flex items-center space-x-2 text-sm">
+                  <Key className="h-3.5 w-3.5" />
                   <span>Environment Variables</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 pt-0 -mt-4">
                 {envVarsList.length > 0 ? (
                   envVarsList.map((envVar, index) => (
-                    <div key={index} className="space-y-2 w-full">
+                    <div key={index} className="space-y-1 w-full">
                       <div className="flex items-center justify-between">
-                        <Label htmlFor={envVar.name} className="text-sm font-medium">
+                        <Label htmlFor={envVar.name} className="text-xs font-medium">
                           {envVar.name}
                           {envVar.required && (
                             <span className="text-red-500 ml-1">*</span>
@@ -123,7 +126,7 @@ export function ConfigureToolDialog({ tool, children }: ConfigureToolDialogProps
                             variant="ghost"
                             size="sm"
                             onClick={() => window.open(envVar.about_url, '_blank')}
-                            className="h-auto p-1"
+                            className="h-6 w-6 p-0"
                           >
                             <ExternalLink className="h-3 w-3" />
                           </Button>
@@ -140,7 +143,7 @@ export function ConfigureToolDialog({ tool, children }: ConfigureToolDialogProps
                           ...prev,
                           [envVar.name]: e.target.value
                         }))}
-                        className="w-full max-w-full overflow-hidden text-ellipsis"
+                        className="w-full max-w-full overflow-hidden text-ellipsis h-7 text-xs"
                         style={{ 
                           fontFamily: 'monospace',
                           letterSpacing: envVar.name.toLowerCase().includes('secret') || 
@@ -149,54 +152,58 @@ export function ConfigureToolDialog({ tool, children }: ConfigureToolDialogProps
                         }}
                       />
                       {envVar.description && (
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-muted-foreground leading-tight">
                           {envVar.description}
                         </p>
                       )}
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Key className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-                    <p>No environment variables required for this tool.</p>
+                  <div className="text-center py-4 text-muted-foreground">
+                    <Key className="h-5 w-5 mx-auto mb-1.5 text-gray-300" />
+                    <p className="text-xs">No environment variables required for this tool.</p>
                   </div>
                 )}
               </CardContent>
             </Card>
 
             {envVarsList.length > 0 && (
-              <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setOpen(false)}>
+              <div className="flex justify-end space-x-2 pt-1">
+                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleSave} disabled={isLoading}>
-                  <Save className="h-4 w-4 mr-2" />
-                  {isLoading ? 'Saving...' : 'Save Configuration'}
+                <Button size="sm" className="h-7 text-xs" onClick={handleSave} disabled={isLoading}>
+                  <Save className="h-3 w-3 mr-1" />
+                  {isLoading ? 'Saving...' : 'Save Config'}
                 </Button>
               </div>
             )}
+              </div>
+            </ScrollArea>
           </TabsContent>
 
-          <TabsContent value="actions" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Activity className="h-4 w-4" />
+          <TabsContent value="actions" className="flex-1 min-h-0 overflow-hidden">
+            <ScrollArea className="h-full">
+              <div className="space-y-3 p-1">
+                <Card>
+              <CardHeader className="pb-1">
+                <CardTitle className="flex items-center space-x-2 text-sm">
+                  <Activity className="h-3.5 w-3.5" />
                   <span>Available Actions</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-0 -mt-4">
                 {(tool.actions || tool.enabled_actions || []).length > 0 ? (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {(tool.actions || tool.enabled_actions || []).map((action, index) => (
-                      <div key={index} className="flex items-start space-x-3 p-3 border rounded-lg">
-                        <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                      <div key={index} className="flex items-start space-x-2.5 p-2.5 border rounded-md">
+                        <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
                         <div className="flex-1">
                           <h4 className="font-medium text-sm">
                             {typeof action === 'string' ? action : action.name}
                           </h4>
                           {typeof action === 'object' && action.description && (
-                            <p className="text-xs text-muted-foreground mt-1">
+                            <p className="text-xs text-muted-foreground mt-0.5 leading-tight">
                               {action.description}
                             </p>
                           )}
@@ -205,48 +212,52 @@ export function ConfigureToolDialog({ tool, children }: ConfigureToolDialogProps
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Activity className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-                    <p>No actions available for this tool.</p>
+                  <div className="text-center py-6 text-muted-foreground">
+                    <Activity className="h-6 w-6 mx-auto mb-2 text-gray-300" />
+                    <p className="text-sm">No actions available for this tool.</p>
                   </div>
                 )}
               </CardContent>
             </Card>
+              </div>
+            </ScrollArea>
           </TabsContent>
 
-          <TabsContent value="info" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Info className="h-4 w-4" />
+          <TabsContent value="info" className="flex-1 min-h-0 overflow-hidden">
+            <ScrollArea className="h-full">
+              <div className="space-y-3 p-1">
+                <Card>
+              <CardHeader className="pb-1">
+                <CardTitle className="flex items-center space-x-2 text-sm">
+                  <Info className="h-3.5 w-3.5" />
                   <span>Tool Information</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Display Name</Label>
+              <CardContent className="space-y-3 pt-0 -mt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium">Display Name</Label>
                     <p className="text-sm">{tool.display_name}</p>
                   </div>
                   
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Version</Label>
-                    <Badge variant="outline">{tool.version}</Badge>
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium">Version</Label>
+                    <Badge variant="outline" className="text-xs">{tool.version}</Badge>
                   </div>
                   
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Author</Label>
-                    <div className="flex items-center space-x-2">
-                      <User className="h-4 w-4 text-gray-400" />
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium">Author</Label>
+                    <div className="flex items-center space-x-1.5">
+                      <User className="h-3.5 w-3.5 text-gray-400" />
                       <span className="text-sm">{tool.author}</span>
                     </div>
                   </div>
                   
                   {tool.installed_at && (
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">Installed Date</Label>
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="h-4 w-4 text-gray-400" />
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium">Installed Date</Label>
+                      <div className="flex items-center space-x-1.5">
+                        <Calendar className="h-3.5 w-3.5 text-gray-400" />
                         <span className="text-sm">
                           {new Date(tool.installed_at).toLocaleDateString()}
                         </span>
@@ -257,17 +268,19 @@ export function ConfigureToolDialog({ tool, children }: ConfigureToolDialogProps
                 
                 <Separator />
                 
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Description</Label>
-                  <p className="text-sm text-muted-foreground">{tool.description}</p>
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Description</Label>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{tool.description}</p>
                 </div>
                 
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Tool ID</Label>
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Tool ID</Label>
                   <code className="text-xs bg-gray-100 px-2 py-1 rounded">{tool.id}</code>
                 </div>
               </CardContent>
             </Card>
+              </div>
+            </ScrollArea>
           </TabsContent>
         </Tabs>
       </DialogContent>
