@@ -177,6 +177,27 @@ class ApiClient {
     
     return this.request<LogsResponse>(endpoint);
   }
+
+  // Analytics endpoints
+  async getAnalyticsOverview(period: string): Promise<ApiResponse<any>> {
+    return this.request<ApiResponse<any>>(`/dashboard/analytics/overview?period=${period}`);
+  }
+
+  async getUserAnalytics(period: string): Promise<ApiResponse<any>> {
+    return this.request<ApiResponse<any>>(`/dashboard/analytics/users?period=${period}`);
+  }
+
+  async getToolAnalytics(period: string): Promise<ApiResponse<any>> {
+    return this.request<ApiResponse<any>>(`/dashboard/analytics/tools?period=${period}`);
+  }
+
+  async getPerformanceAnalytics(period: string): Promise<ApiResponse<any>> {
+    return this.request<ApiResponse<any>>(`/dashboard/analytics/performance?period=${period}`);
+  }
+
+  async getSecurityAnalytics(period: string): Promise<ApiResponse<any>> {
+    return this.request<ApiResponse<any>>(`/dashboard/analytics/security?period=${period}`);
+  }
 }
 
 export const apiClient = new ApiClient(); 
