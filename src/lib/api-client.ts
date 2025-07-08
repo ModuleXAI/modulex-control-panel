@@ -198,6 +198,28 @@ class ApiClient {
   async getSecurityAnalytics(period: string): Promise<ApiResponse<any>> {
     return this.request<ApiResponse<any>>(`/dashboard/analytics/security?period=${period}`);
   }
+
+  // Users endpoints
+  async getUsers(filters: any): Promise<any> {
+    const params = new URLSearchParams();
+    
+    if (filters.search) params.append('search', filters.search);
+    if (filters.status && filters.status !== 'all') params.append('status', filters.status);
+    if (filters.sortBy) params.append('sort_by', filters.sortBy);
+    if (filters.page) params.append('page', filters.page.toString());
+    if (filters.limit) params.append('limit', filters.limit.toString());
+
+    const queryString = params.toString();
+    const endpoint = `/dashboard/users${queryString ? `?${queryString}` : ''}`;
+    
+    return this.request<any>(endpoint);
+  }
+
+
+
+  async getUserDetail(userId: string): Promise<any> {
+    return this.request<any>(`/dashboard/users/${userId}`);
+  }
 }
 
 export const apiClient = new ApiClient(); 

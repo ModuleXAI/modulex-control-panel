@@ -73,7 +73,7 @@ export interface ToolAnalytics {
 export interface PerformanceAnalytics {
   avgResponseTime: AnalyticsMetric;
   uptime: AnalyticsMetric;
-  requestVolume: AnalyticsMetric;
+  requestVolumeMetric: AnalyticsMetric;
   errorRate: AnalyticsMetric;
   apiResponseTimes: Array<{
     time: string;
@@ -92,7 +92,7 @@ export interface PerformanceAnalytics {
     value: number;
     color: string;
   }>;
-  requestVolume: Array<{
+  requestVolumeData: Array<{
     hour: string;
     requests: number;
     errors: number;
@@ -115,7 +115,7 @@ export interface SecurityAnalytics {
     value: number;
     color: string;
   }>;
-  securityScore: Array<{
+  securityScoreRadar: Array<{
     subject: string;
     score: number;
     fullMark: number;

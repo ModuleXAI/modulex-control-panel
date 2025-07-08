@@ -21,6 +21,7 @@ export function middleware(request: NextRequest) {
     if (token) {
       const response = NextResponse.next();
       response.cookies.delete('auth-token');
+      response.cookies.delete('host-address');
       return response;
     }
     return NextResponse.next();

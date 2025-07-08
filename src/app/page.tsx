@@ -13,9 +13,11 @@ export default function HomePage() {
   useEffect(() => {
     // Clear any existing cookies first to prevent invalid redirects
     const existingToken = Cookies.get('auth-token');
-    if (existingToken) {
-      console.log('🧹 Clearing existing auth token');
+    const existingHost = Cookies.get('host-address');
+    if (existingToken || existingHost) {
+      console.log('🧹 Clearing existing auth credentials');
       Cookies.remove('auth-token');
+      Cookies.remove('host-address');
       logout(); // Clear the store state as well
     }
     
