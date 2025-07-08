@@ -20,8 +20,8 @@ export default function LoginForm() {
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      hostAddress: 'https://ixunqceqxxezymhvbdpe.supabase.co/functions/v1/api',
-      apiKey: 'my-secret-modulex-key',
+      hostAddress: '',
+      apiKey: '',
     },
   });
 
