@@ -20,8 +20,8 @@ export default function LoginForm() {
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      hostAddress: '',
-      apiKey: '',
+      email: '',
+      password: '',
     },
   });
 
@@ -29,8 +29,7 @@ export default function LoginForm() {
     try {
       setError(null);
       console.log('🔐 Attempting login with:', {
-        hostAddress: data.hostAddress,
-        apiKeyLength: data.apiKey.length
+        email: data.email
       });
       
       await login(data);
@@ -49,34 +48,41 @@ export default function LoginForm() {
     <Card className="w-full max-w-md">
       <CardHeader>
         <CardTitle className="text-2xl text-center">ModuleX Control Panel</CardTitle>
+        <p className="text-sm text-muted-foreground text-center mt-2">
+          {process.env.NEXT_PUBLIC_MODULEX_HOST ? 
+            `Connecting to: ${process.env.NEXT_PUBLIC_MODULEX_HOST}` : 
+            'Environment not configured'
+          }
+        </p>
       </CardHeader>
       <CardContent>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="hostAddress">ModuleX Host Address</Label>
+            <Label htmlFor="email">Email</Label>
             <Input
-              id="hostAddress"
-              placeholder="https://your-modulex-instance.com/functions/v1/api"
-              {...form.register('hostAddress')}
+              id="email"
+              type="email"
+              placeholder="Enter your email"
+              {...form.register('email')}
             />
-            {form.formState.errors.hostAddress && (
+            {form.formState.errors.email && (
               <p className="text-sm text-red-600">
-                {form.formState.errors.hostAddress.message}
+                {form.formState.errors.email.message}
               </p>
             )}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="apiKey">X-API-KEY</Label>
+            <Label htmlFor="password">Password</Label>
             <Input
-              id="apiKey"
+              id="password"
               type="password"
-              placeholder="Enter your API key"
-              {...form.register('apiKey')}
+              placeholder="Enter your password"
+              {...form.register('password')}
             />
-            {form.formState.errors.apiKey && (
+            {form.formState.errors.password && (
               <p className="text-sm text-red-600">
-                {form.formState.errors.apiKey.message}
+                {form.formState.errors.password.message}
               </p>
             )}
           </div>

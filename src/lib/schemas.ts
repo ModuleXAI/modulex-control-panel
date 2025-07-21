@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 export const loginSchema = z.object({
-  hostAddress: z.string().url('Please enter a valid URL'),
-  apiKey: z.string().min(1, 'API key is required'),
+  email: z.string().email('Please enter a valid email'),
+  password: z.string().min(1, 'Password is required'),
 });
 
 export const toolConfigSchema = z.object({

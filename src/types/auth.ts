@@ -12,7 +12,8 @@ export interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  token: string | null;
+  accessToken: string | null;
+  refreshToken: string | null;
 }
 
 export interface LoginCredentials {
@@ -20,7 +21,15 @@ export interface LoginCredentials {
   password: string;
 }
 
-export interface HostValidationRequest {
-  hostAddress: string;
-  apiKey: string;
+export interface AuthResponse {
+  access_token: string;
+  refresh_token: string;
+  user: User;
+  expires_in?: number;
+}
+
+export interface RefreshTokenResponse {
+  access_token: string;
+  refresh_token: string;
+  expires_in?: number;
 } 

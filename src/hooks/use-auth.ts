@@ -1,26 +1,36 @@
 import { useAuthStore } from '@/store/auth-store';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { tokenManager } from '@/lib/token-manager';
 
 export const useAuth = () => {
   const authStore = useAuthStore();
-  const router = useRouter();
 
   useEffect(() => {
-    if (!authStore.isAuthenticated && !authStore.isLoading) {
-      router.push('/login');
-    }
-  }, [authStore.isAuthenticated, authStore.isLoading, router]);
+    // Hydrate the auth store on mount
+    authStore.hydrate();
+  }, []);
 
-  return authStore;
+  // Function to make authenticated API requests
+  const makeAuthenticatedRequest = async <T>(endpoint: string, options?: RequestInit): Promise<T> => {
+    return tokenManager.makeAuthenticatedRequest<T>(endpoint, options);
+  };
+
+  return {
+    ...authStore,
+    makeAuthenticatedRequest,
+  };
 };
 
 export const useRequireAuth = () => {
-  const auth = useAuth();
-  
-  if (!auth.isAuthenticated) {
-    return null;
-  }
-  
-  return auth;
+  const { isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.push('/login');
+    }
+  }, [isAuthenticated, isLoading, router]);
+
+  return { isAuthenticated, isLoading };
 }; 

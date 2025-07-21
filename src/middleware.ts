@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
-  const token = request.cookies.get('auth-token');
+  const accessToken = request.cookies.get('access-token');
   const { pathname } = request.nextUrl;
 
   // Public routes that don't require authentication
@@ -10,27 +10,27 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Handle root route - always redirect to login for now
+  // Handle root route - redirect to dashboard if authenticated, login if not
   if (pathname === '/') {
+    if (accessToken) {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
   // Handle login page
   if (pathname.startsWith('/login')) {
-    // If there's a token, clear it and stay on login page
-    if (token) {
-      const response = NextResponse.next();
-      response.cookies.delete('auth-token');
-      response.cookies.delete('host-address');
-      return response;
+    // If there's an access token, redirect to dashboard
+    if (accessToken) {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
     }
     return NextResponse.next();
   }
 
   // Handle protected dashboard routes
   if (pathname.startsWith('/dashboard')) {
-    // If no token, redirect to login
-    if (!token) {
+    // If no access token, redirect to login
+    if (!accessToken) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
     return NextResponse.next();
