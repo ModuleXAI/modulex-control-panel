@@ -113,7 +113,34 @@ export default function PerformanceAnalytics({ dateRange }: PerformanceAnalytics
   }
 
   // Use API data if available, otherwise fall back to mock data
-  const performanceAnalytics = data?.performanceAnalytics || {};
+  const performanceAnalytics = data?.performance_analytics || {};
+  
+  // Extract metrics from API response
+  const avgResponseTime = performanceAnalytics.avg_response_time?.value || 128;
+  const avgResponseTimeChange = performanceAnalytics.avg_response_time?.change || -8;
+  const avgResponseTimeChangeType = performanceAnalytics.avg_response_time?.change_type || 'decrease';
+  
+  const uptime = performanceAnalytics.uptime?.value || 99.95;
+  const uptimeChange = performanceAnalytics.uptime?.change || 0;
+  const uptimeChangeType = performanceAnalytics.uptime?.change_type || 'stable';
+  
+  const requestVolume = performanceAnalytics.request_volume_metric?.value || 4500;
+  const requestVolumeChange = performanceAnalytics.request_volume_metric?.change || 12;
+  const requestVolumeChangeType = performanceAnalytics.request_volume_metric?.change_type || 'increase';
+  
+  const errorRate = performanceAnalytics.error_rate?.value || 0.12;
+  const errorRateChange = performanceAnalytics.error_rate?.change || -0.05;
+  const errorRateChangeType = performanceAnalytics.error_rate?.change_type || 'decrease';
+  
+  // Chart data from API
+  const apiResponseTimesData = performanceAnalytics.api_response_times?.length > 0 ? 
+    performanceAnalytics.api_response_times : mockApiResponseTimes;
+  const endpointPerformanceData = performanceAnalytics.endpoint_performance?.length > 0 ? 
+    performanceAnalytics.endpoint_performance : mockEndpointPerformance;
+  const requestVolumeData = performanceAnalytics.request_volume_data?.length > 0 ? 
+    performanceAnalytics.request_volume_data : mockRequestVolume;
+  const systemMetricsData = performanceAnalytics.system_metrics?.length > 0 ? 
+    performanceAnalytics.system_metrics : mockSystemMetrics;
 
   return (
     <div className="space-y-6">
@@ -133,10 +160,16 @@ export default function PerformanceAnalytics({ dateRange }: PerformanceAnalytics
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline justify-between">
-              <div className="text-3xl font-bold text-gray-900">128ms</div>
+              <div className="text-3xl font-bold text-gray-900">{avgResponseTime}ms</div>
               <div className="flex items-center gap-1">
-                <TrendingDown className="h-4 w-4 text-green-600" />
-                <span className="text-sm font-medium text-green-600">-8%</span>
+                {avgResponseTimeChangeType === 'decrease' ? (
+                  <TrendingDown className="h-4 w-4 text-green-600" />
+                ) : (
+                  <TrendingUp className="h-4 w-4 text-red-600" />
+                )}
+                <span className={`text-sm font-medium ${avgResponseTimeChangeType === 'decrease' ? 'text-green-600' : 'text-red-600'}`}>
+                  {avgResponseTimeChangeType === 'decrease' ? '' : '+'}{avgResponseTimeChange}%
+                </span>
               </div>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
@@ -237,7 +270,7 @@ export default function PerformanceAnalytics({ dateRange }: PerformanceAnalytics
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={mockApiResponseTimes}>
+              <LineChart data={apiResponseTimesData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="time" stroke="#6b7280" fontSize={12} />
                 <YAxis stroke="#6b7280" fontSize={12} />
@@ -269,7 +302,7 @@ export default function PerformanceAnalytics({ dateRange }: PerformanceAnalytics
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {mockSystemMetrics.map((metric) => (
+              {systemMetricsData.map((metric) => (
                 <div key={metric.name} className="space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -316,8 +349,8 @@ export default function PerformanceAnalytics({ dateRange }: PerformanceAnalytics
           </div>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={mockRequestVolume}>
+                      <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={requestVolumeData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="hour" stroke="#6b7280" fontSize={12} />
               <YAxis stroke="#6b7280" fontSize={12} />
@@ -348,7 +381,7 @@ export default function PerformanceAnalytics({ dateRange }: PerformanceAnalytics
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {mockEndpointPerformance.map((endpoint, index) => (
+            {endpointPerformanceData.map((endpoint, index) => (
               <div key={index} className="flex items-center justify-between p-4 rounded-lg hover:bg-gray-50 transition-colors">
                 <div className="flex-1">
                   <p className="font-mono text-sm font-medium text-gray-900">{endpoint.endpoint}</p>

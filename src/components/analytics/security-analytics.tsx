@@ -123,9 +123,31 @@ export default function SecurityAnalytics({ dateRange }: SecurityAnalyticsProps)
   }
 
   // Use API data if available, otherwise fall back to mock data
-  const securityAnalytics = data?.securityAnalytics || {};
-  const overallSecurityScore = securityAnalytics.securityScore || 91;
+  const securityAnalytics = data?.security_analytics || {};
   
+  // Extract metrics from API response
+  const overallSecurityScore = securityAnalytics.security_score || 91;
+  
+  const failedLogins = securityAnalytics.failed_logins?.value || 28;
+  const failedLoginsChange = securityAnalytics.failed_logins?.change || -15;
+  const failedLoginsChangeType = securityAnalytics.failed_logins?.change_type || 'decrease';
+  
+  const suspiciousActivities = securityAnalytics.suspicious_activities?.value || 5;
+  const suspiciousActivitiesChange = securityAnalytics.suspicious_activities?.change || 2;
+  const suspiciousActivitiesChangeType = securityAnalytics.suspicious_activities?.change_type || 'increase';
+  
+  const activeSessions = securityAnalytics.active_sessions || 342;
+  
+  // Chart data from API
+  const securityEventsData = securityAnalytics.security_events?.length > 0 ? 
+    securityAnalytics.security_events : mockSecurityEvents;
+  const authMethodsData = securityAnalytics.auth_methods_usage?.length > 0 ? 
+    securityAnalytics.auth_methods_usage : mockAuthMethodsUsage;
+  const securityScoreRadarData = securityAnalytics.security_score_breakdown?.length > 0 ? 
+    securityAnalytics.security_score_breakdown : mockSecurityScore;
+  const recentSecurityEvents = securityAnalytics.recent_security_events?.length > 0 ? 
+    securityAnalytics.recent_security_events : mockRecentSecurityEvents;
+
   return (
     <div className="space-y-6">
       {/* Security Metrics */}
@@ -169,10 +191,16 @@ export default function SecurityAnalytics({ dateRange }: SecurityAnalyticsProps)
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline justify-between">
-              <div className="text-3xl font-bold text-gray-900">28</div>
+              <div className="text-3xl font-bold text-gray-900">{failedLogins}</div>
               <div className="flex items-center gap-1">
-                <TrendingDown className="h-4 w-4 text-green-600" />
-                <span className="text-sm font-medium text-green-600">-15%</span>
+                {failedLoginsChangeType === 'decrease' ? (
+                  <TrendingDown className="h-4 w-4 text-green-600" />
+                ) : (
+                  <TrendingUp className="h-4 w-4 text-red-600" />
+                )}
+                <span className={`text-sm font-medium ${failedLoginsChangeType === 'decrease' ? 'text-green-600' : 'text-red-600'}`}>
+                  {failedLoginsChangeType === 'decrease' ? '' : '+'}{failedLoginsChange}%
+                </span>
               </div>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
@@ -257,7 +285,7 @@ export default function SecurityAnalytics({ dateRange }: SecurityAnalyticsProps)
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={mockSecurityEvents}>
+              <LineChart data={securityEventsData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="time" stroke="#6b7280" fontSize={12} />
                 <YAxis stroke="#6b7280" fontSize={12} />
@@ -289,7 +317,7 @@ export default function SecurityAnalytics({ dateRange }: SecurityAnalyticsProps)
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={mockAuthMethodsUsage}
+                  data={authMethodsData}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
@@ -298,7 +326,7 @@ export default function SecurityAnalytics({ dateRange }: SecurityAnalyticsProps)
                   fill="#8884d8"
                   dataKey="value"
                 >
-                  {mockAuthMethodsUsage.map((entry, index) => (
+                  {authMethodsData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
@@ -327,8 +355,8 @@ export default function SecurityAnalytics({ dateRange }: SecurityAnalyticsProps)
           </div>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <RadarChart data={mockSecurityScore}>
+                      <ResponsiveContainer width="100%" height={300}>
+              <RadarChart data={securityScoreRadarData}>
               <PolarGrid stroke="#e5e7eb" />
               <PolarAngleAxis dataKey="subject" stroke="#6b7280" fontSize={12} />
               <PolarRadiusAxis angle={90} domain={[0, 100]} stroke="#6b7280" fontSize={10} />

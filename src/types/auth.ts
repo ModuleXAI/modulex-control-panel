@@ -6,6 +6,8 @@ export interface User {
   avatar?: string;
   createdAt: string;
   lastLogin?: string;
+  organization_ids?: string[];
+  primary_organization_id?: string;
 }
 
 export interface AuthState {

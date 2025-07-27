@@ -70,6 +70,20 @@ const mockApiPerformanceData = [
   { time: '23:59', avgResponseTime: 118, requests: 520 },
 ];
 
+// Helper functions for calculations
+const calculateGrowthPercentage = (userGrowthData: any[]) => {
+  if (userGrowthData.length < 2) return 0;
+  const latest = userGrowthData[userGrowthData.length - 1];
+  const previous = userGrowthData[userGrowthData.length - 2];
+  return ((latest.users - previous.users) / previous.users * 100);
+};
+
+const calculateAvgResponseTime = (performanceData: any[]) => {
+  if (performanceData.length === 0) return 128;
+  const avgResponseTime = performanceData.reduce((sum, item) => sum + item.response_time, 0) / performanceData.length;
+  return Math.round(avgResponseTime);
+};
+
 export default function AnalyticsOverview({ dateRange }: AnalyticsOverviewProps) {
   const { data, isLoading, error, refetch } = useAnalyticsOverview(dateRange);
 
@@ -109,14 +123,27 @@ export default function AnalyticsOverview({ dateRange }: AnalyticsOverviewProps)
 
   // Use API data if available, otherwise fall back to mock data
   const overview = data?.overview || {};
-  const totalUsers = overview.totalUsers || 210;
-  const userGrowth = 15.2; // Calculate from overview.userGrowth if available
-  const totalTools = overview.totalTools || 45;
-  const activeTools = overview.activeTools || 38;
-  const avgResponseTime = 128; // Calculate from overview.systemPerformance if available
-  const responseTimeChange = -5.3;
-  const systemUptime = 99.9;
-  const securityScore = 95;
+  const totalUsers = overview.total_users || 210;
+  const userGrowth = overview.user_growth?.length > 0 ? calculateGrowthPercentage(overview.user_growth) : 15.2;
+  const totalTools = overview.total_tools || 45;
+  const activeTools = overview.active_tools || 38;
+  const avgResponseTime = overview.system_performance?.length > 0 ? 
+    calculateAvgResponseTime(overview.system_performance) : 128;
+  const responseTimeChange = -5.3; // Calculate from historical data if available
+  const systemUptime = overview.system_health === 'optimal' ? 99.9 : 
+                       overview.system_health === 'good' ? 99.5 :
+                       overview.system_health === 'warning' ? 95.0 : 85.0;
+  const securityScore = 95; // This should come from security analytics
+
+  // Prepare chart data from API response
+  const userGrowthData = overview.user_growth?.length > 0 ? overview.user_growth : mockUserGrowthData;
+  const toolUsageData = overview.tool_usage?.length > 0 ? overview.tool_usage : mockToolUsageData;
+  const apiPerformanceData = overview.system_performance?.length > 0 ? 
+    overview.system_performance.map((item: any) => ({
+      time: item.time,
+      avgResponseTime: item.response_time,
+      requests: Math.floor(Math.random() * 500) + 300 // Mock request count if not available
+    })) : mockApiPerformanceData;
 
   return (
     <div className="space-y-6">
@@ -256,7 +283,7 @@ export default function AnalyticsOverview({ dateRange }: AnalyticsOverviewProps)
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={mockUserGrowthData}>
+              <AreaChart data={userGrowthData}>
                 <defs>
                   <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
@@ -308,7 +335,7 @@ export default function AnalyticsOverview({ dateRange }: AnalyticsOverviewProps)
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={mockToolUsageData}
+                  data={toolUsageData}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
@@ -317,7 +344,7 @@ export default function AnalyticsOverview({ dateRange }: AnalyticsOverviewProps)
                   fill="#8884d8"
                   dataKey="value"
                 >
-                  {mockToolUsageData.map((entry, index) => (
+                  {toolUsageData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
@@ -354,7 +381,7 @@ export default function AnalyticsOverview({ dateRange }: AnalyticsOverviewProps)
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={mockApiPerformanceData}>
+            <LineChart data={apiPerformanceData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="time" stroke="#6b7280" fontSize={12} />
               <YAxis yAxisId="left" stroke="#6b7280" fontSize={12} />

@@ -22,7 +22,7 @@ import {
   Shield,
   Code2
 } from 'lucide-react';
-import { useAvailableTools, useInstalledTools } from '@/hooks/use-tools';
+import { useAvailableIntegrations, useInstalledIntegrations } from '@/hooks/use-tools';
 import { Tool } from '@/types/tools';
 import { ConfigureToolDialog } from '@/components/tools/configure-tool-dialog';
 import { InstallToolDialog } from '@/components/tools/install-tool-dialog';
@@ -32,8 +32,8 @@ export default function ToolsPage() {
   const [filter, setFilter] = useState<'all' | 'installed' | 'available'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
-  const { data: availableTools, isLoading: loadingAvailable } = useAvailableTools();
-  const { data: installedTools, isLoading: loadingInstalled } = useInstalledTools();
+  const { data: availableTools, isLoading: loadingAvailable } = useAvailableIntegrations();
+  const { data: installedTools, isLoading: loadingInstalled } = useInstalledIntegrations();
 
   // Create a combined list with installation status
   const allTools: (Tool & { isInstalled: boolean })[] = [
@@ -52,7 +52,7 @@ export default function ToolsPage() {
     return matchesSearch && matchesFilter;
   });
 
-  if (loadingAvailable) {
+  if (loadingAvailable || loadingInstalled) {
     return (
       <div className="space-y-8">
         <div className="animate-pulse">

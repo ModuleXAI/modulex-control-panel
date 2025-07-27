@@ -114,7 +114,28 @@ export default function ToolAnalytics({ dateRange }: ToolAnalyticsProps) {
   }
 
   // Use API data if available, otherwise fall back to mock data
-  const toolAnalytics = data?.toolAnalytics || {};
+  const toolAnalytics = data?.tool_analytics || {};
+  
+  // Extract metrics from API response
+  const totalInstallations = toolAnalytics.total_installations?.value || 142;
+  const totalInstallationsChange = toolAnalytics.total_installations?.change || 28;
+  const totalInstallationsChangeType = toolAnalytics.total_installations?.change_type || 'increase';
+  
+  const toolExecutions = toolAnalytics.tool_executions?.value || 4200;
+  const toolExecutionsChange = toolAnalytics.tool_executions?.change || 15;
+  const toolExecutionsChangeType = toolAnalytics.tool_executions?.change_type || 'increase';
+  
+  const successRate = toolAnalytics.success_rate?.value || 97.8;
+  const successRateChange = toolAnalytics.success_rate?.change || 0.5;
+  const successRateChangeType = toolAnalytics.success_rate?.change_type || 'increase';
+  
+  const avgExecutionTime = toolAnalytics.avg_execution_time?.value || 275;
+  const avgExecutionTimeChange = toolAnalytics.avg_execution_time?.change || -12;
+  const avgExecutionTimeChangeType = toolAnalytics.avg_execution_time?.change_type || 'decrease';
+  
+  // Chart data from API
+  const toolAdoptionData = toolAnalytics.tool_adoption?.length > 0 ? toolAnalytics.tool_adoption : mockToolAdoptionData;
+  const topToolsData = toolAnalytics.top_tools?.length > 0 ? toolAnalytics.top_tools : mockTopTools;
 
   return (
     <div className="space-y-6">
@@ -134,10 +155,16 @@ export default function ToolAnalytics({ dateRange }: ToolAnalyticsProps) {
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline justify-between">
-              <div className="text-3xl font-bold text-gray-900">142</div>
+              <div className="text-3xl font-bold text-gray-900">{totalInstallations}</div>
               <div className="flex items-center gap-1">
-                <ArrowUpRight className="h-4 w-4 text-green-600" />
-                <span className="text-sm font-medium text-green-600">+28%</span>
+                {totalInstallationsChangeType === 'increase' ? (
+                  <ArrowUpRight className="h-4 w-4 text-green-600" />
+                ) : (
+                  <ArrowDownRight className="h-4 w-4 text-red-600" />
+                )}
+                <span className={`text-sm font-medium ${totalInstallationsChangeType === 'increase' ? 'text-green-600' : 'text-red-600'}`}>
+                  {totalInstallationsChangeType === 'increase' ? '+' : ''}{totalInstallationsChange}%
+                </span>
               </div>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
@@ -160,10 +187,16 @@ export default function ToolAnalytics({ dateRange }: ToolAnalyticsProps) {
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline justify-between">
-              <div className="text-3xl font-bold text-gray-900">4.2k</div>
+              <div className="text-3xl font-bold text-gray-900">{toolExecutions >= 1000 ? `${(toolExecutions/1000).toFixed(1)}k` : toolExecutions}</div>
               <div className="flex items-center gap-1">
-                <ArrowUpRight className="h-4 w-4 text-green-600" />
-                <span className="text-sm font-medium text-green-600">+15%</span>
+                {toolExecutionsChangeType === 'increase' ? (
+                  <ArrowUpRight className="h-4 w-4 text-green-600" />
+                ) : (
+                  <ArrowDownRight className="h-4 w-4 text-red-600" />
+                )}
+                <span className={`text-sm font-medium ${toolExecutionsChangeType === 'increase' ? 'text-green-600' : 'text-red-600'}`}>
+                  {toolExecutionsChangeType === 'increase' ? '+' : ''}{toolExecutionsChange}%
+                </span>
               </div>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
@@ -186,9 +219,9 @@ export default function ToolAnalytics({ dateRange }: ToolAnalyticsProps) {
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline justify-between">
-              <div className="text-3xl font-bold text-gray-900">97.8%</div>
-              <Badge className="bg-green-100 text-green-800 border-green-200">
-                Excellent
+              <div className="text-3xl font-bold text-gray-900">{successRate}%</div>
+              <Badge className={`border ${successRate >= 95 ? 'bg-green-100 text-green-800 border-green-200' : successRate >= 90 ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 'bg-red-100 text-red-800 border-red-200'}`}>
+                {successRate >= 95 ? 'Excellent' : successRate >= 90 ? 'Good' : 'Needs Improvement'}
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
@@ -211,14 +244,20 @@ export default function ToolAnalytics({ dateRange }: ToolAnalyticsProps) {
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline justify-between">
-              <div className="text-3xl font-bold text-gray-900">275ms</div>
+              <div className="text-3xl font-bold text-gray-900">{avgExecutionTime}ms</div>
               <div className="flex items-center gap-1">
-                <ArrowDownRight className="h-4 w-4 text-green-600" />
-                <span className="text-sm font-medium text-green-600">-12%</span>
+                {avgExecutionTimeChangeType === 'decrease' ? (
+                  <ArrowDownRight className="h-4 w-4 text-green-600" />
+                ) : (
+                  <ArrowUpRight className="h-4 w-4 text-red-600" />
+                )}
+                <span className={`text-sm font-medium ${avgExecutionTimeChangeType === 'decrease' ? 'text-green-600' : 'text-red-600'}`}>
+                  {avgExecutionTimeChangeType === 'decrease' ? '' : '+'}{avgExecutionTimeChange}%
+                </span>
               </div>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              Performance improved
+              {avgExecutionTimeChangeType === 'decrease' ? 'Performance improved' : 'Performance declined'}
             </p>
           </CardContent>
         </Card>
@@ -238,7 +277,7 @@ export default function ToolAnalytics({ dateRange }: ToolAnalyticsProps) {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={mockToolAdoptionData}>
+              <BarChart data={toolAdoptionData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="month" stroke="#6b7280" fontSize={12} />
                 <YAxis stroke="#6b7280" fontSize={12} />
@@ -370,7 +409,7 @@ export default function ToolAnalytics({ dateRange }: ToolAnalyticsProps) {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {mockTopTools.map((tool, index) => (
+            {topToolsData.map((tool, index) => (
               <div key={index} className="flex items-center justify-between p-4 rounded-lg hover:bg-gray-50 transition-colors">
                 <div className="flex items-center gap-4 flex-1">
                   <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center">

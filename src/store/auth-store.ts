@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { AuthState, User, LoginCredentials } from '@/types/auth';
 import { tokenManager } from '@/lib/token-manager';
+import { toast } from 'sonner';
 
 interface AuthStore extends AuthState {
   login: (credentials: LoginCredentials) => Promise<void>;
@@ -66,9 +67,12 @@ export const useAuthStore = create<AuthStore>()(
             isAuthenticated: true,
             accessToken: authResponse.access_token,
             refreshToken: authResponse.refresh_token,
-            hostAddress: process.env.NEXT_PUBLIC_MODULEX_HOST || null,
+            hostAddress: tokenManager.getHostAddress(), // Get from token manager instead of env
             isLoading: false,
           });
+
+          // Note: Organization fetching will be handled by DashboardLayout
+          
         } catch (error) {
           console.error('❌ Login failed:', error);
           set({ isLoading: false });
@@ -77,18 +81,45 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       logout: () => {
-        console.log('🚪 Logout - clearing auth state');
+        console.log('🚪 Logout initiated from auth store');
+        
+        // Show logout toast
+        toast.success('Logged out successfully', {
+          description: 'You have been logged out securely',
+          duration: 2000,
+        });
         
         // Use token manager for logout
         tokenManager.logout();
         
+        // Clear auth store state
         set({
           user: null,
           isAuthenticated: false,
           accessToken: null,
           refreshToken: null,
           hostAddress: null,
+          isLoading: false,
         });
+
+        // Clear organization store
+        if (typeof window !== 'undefined') {
+          try {
+            // Clear organization store by importing it dynamically
+            import('@/store/organization-store').then(({ useOrganizationStore }) => {
+              useOrganizationStore.getState().clearOrganizations();
+            });
+          } catch (error) {
+            console.warn('Could not clear organization store:', error);
+          }
+        }
+        
+        console.log('✅ Auth store state cleared');
+        
+        // Force redirect to login page
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 100);
       },
 
       setUser: (user) => set({ user }),

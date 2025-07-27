@@ -109,7 +109,26 @@ export default function UserAnalytics({ dateRange }: UserAnalyticsProps) {
   }
 
   // Use API data if available, otherwise fall back to mock data
-  const userAnalytics = data?.userAnalytics || {};
+  const userAnalytics = data?.user_analytics || {};
+  
+  // Extract metrics from API response
+  const newUsers = userAnalytics.new_users?.value || 125;
+  const newUsersChange = userAnalytics.new_users?.change || 23;
+  const newUsersChangeType = userAnalytics.new_users?.change_type || 'increase';
+  
+  const activeUsers = userAnalytics.active_users?.value || 189;
+  const activeUsersChange = userAnalytics.active_users?.change || 15;
+  const activeUsersChangeType = userAnalytics.active_users?.change_type || 'increase';
+  
+  const avgSessionTime = userAnalytics.avg_session_time?.value || 24;
+  const avgSessionTimeChange = userAnalytics.avg_session_time?.change || 5;
+  const avgSessionTimeChangeType = userAnalytics.avg_session_time?.change_type || 'increase';
+  
+  const totalUsers = userAnalytics.total_users || 342;
+  
+  // Chart data from API
+  const userGrowthData = userAnalytics.user_growth?.length > 0 ? userAnalytics.user_growth : mockNewUsersData;
+  const topUsersData = userAnalytics.top_users?.length > 0 ? userAnalytics.top_users : mockTopUsers;
 
   return (
     <div className="space-y-6">
@@ -129,10 +148,16 @@ export default function UserAnalytics({ dateRange }: UserAnalyticsProps) {
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline justify-between">
-              <div className="text-3xl font-bold text-gray-900">125</div>
+              <div className="text-3xl font-bold text-gray-900">{newUsers}</div>
               <div className="flex items-center gap-1">
-                <ArrowUpRight className="h-4 w-4 text-green-600" />
-                <span className="text-sm font-medium text-green-600">+23%</span>
+                {newUsersChangeType === 'increase' ? (
+                  <ArrowUpRight className="h-4 w-4 text-green-600" />
+                ) : (
+                  <ArrowDownRight className="h-4 w-4 text-red-600" />
+                )}
+                <span className={`text-sm font-medium ${newUsersChangeType === 'increase' ? 'text-green-600' : 'text-red-600'}`}>
+                  {newUsersChangeType === 'increase' ? '+' : ''}{newUsersChange}%
+                </span>
               </div>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
@@ -155,9 +180,9 @@ export default function UserAnalytics({ dateRange }: UserAnalyticsProps) {
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline justify-between">
-              <div className="text-3xl font-bold text-gray-900">189</div>
+              <div className="text-3xl font-bold text-gray-900">{activeUsers}</div>
               <Badge className="bg-purple-100 text-purple-800 border-purple-200">
-                89.6%
+                {((activeUsers / totalUsers) * 100).toFixed(1)}%
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
@@ -180,10 +205,16 @@ export default function UserAnalytics({ dateRange }: UserAnalyticsProps) {
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline justify-between">
-              <div className="text-3xl font-bold text-gray-900">24m</div>
+              <div className="text-3xl font-bold text-gray-900">{avgSessionTime}m</div>
               <div className="flex items-center gap-1">
-                <ArrowUpRight className="h-4 w-4 text-green-600" />
-                <span className="text-sm font-medium text-green-600">+5m</span>
+                {avgSessionTimeChangeType === 'increase' ? (
+                  <ArrowUpRight className="h-4 w-4 text-green-600" />
+                ) : (
+                  <ArrowDownRight className="h-4 w-4 text-red-600" />
+                )}
+                <span className={`text-sm font-medium ${avgSessionTimeChangeType === 'increase' ? 'text-green-600' : 'text-red-600'}`}>
+                  {avgSessionTimeChangeType === 'increase' ? '+' : ''}{avgSessionTimeChange}m
+                </span>
               </div>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
@@ -206,14 +237,14 @@ export default function UserAnalytics({ dateRange }: UserAnalyticsProps) {
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline justify-between">
-              <div className="text-3xl font-bold text-gray-900">342</div>
+              <div className="text-3xl font-bold text-gray-900">{totalUsers}</div>
               <div className="flex items-center gap-1">
                 <ArrowUpRight className="h-4 w-4 text-green-600" />
                 <span className="text-sm font-medium text-green-600">+15%</span>
               </div>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              Total authentications
+              Total users
             </p>
           </CardContent>
         </Card>
@@ -234,7 +265,7 @@ export default function UserAnalytics({ dateRange }: UserAnalyticsProps) {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={mockNewUsersData}>
+              <AreaChart data={userGrowthData}>
                 <defs>
                   <linearGradient id="colorNewUsers" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>

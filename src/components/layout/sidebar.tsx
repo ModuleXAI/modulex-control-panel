@@ -11,11 +11,13 @@ import {
   X,
   BarChart3,
   Users,
-  LogOut
+  LogOut,
+  Loader2
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
+import { useState } from 'react';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: Home },
@@ -27,8 +29,19 @@ const navigation = [
 
 export function Sidebar() {
   const { sidebarOpen, toggleSidebar } = useUIStore();
-  const { logout } = useAuthStore();
+  const { logout, user } = useAuthStore();
   const pathname = usePathname();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    console.log('🔴 Logout button clicked - Sidebar');
+    setIsLoggingOut(true);
+    try {
+      logout();
+    } catch (error) {
+      setIsLoggingOut(false);
+    }
+  };
 
   return (
     <div className={cn(
@@ -83,20 +96,55 @@ export function Sidebar() {
           })}
         </nav>
 
-        <div className="border-t p-4">
-          <Button
-            variant="ghost"
-            onClick={logout}
-            className="w-full justify-start"
-          >
-            <LogOut className="h-5 w-5 flex-shrink-0" />
-            <span className={cn(
-              "ml-3 transition-opacity duration-300",
-              sidebarOpen ? "opacity-100" : "opacity-0"
-            )}>
-              Sign out
-            </span>
-          </Button>
+        {/* User info and logout section */}
+        <div className="border-t">
+          {/* User info (when expanded) */}
+          {sidebarOpen && user && (
+            <div className="px-4 py-3 border-b">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <div className="h-8 w-8 bg-blue-600 rounded-full flex items-center justify-center">
+                    <span className="text-white text-sm font-medium">
+                      {user.name?.charAt(0) || user.email?.charAt(0) || 'U'}
+                    </span>
+                  </div>
+                </div>
+                <div className="ml-3 min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {user.name || user.email}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate">
+                    {user.email}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Logout button */}
+          <div className="p-4">
+            <Button
+              variant="ghost"
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className={cn(
+                "w-full justify-center text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors disabled:opacity-50",
+                sidebarOpen ? "justify-start" : "justify-center"
+              )}
+              title={!sidebarOpen ? "Sign out" : undefined}
+            >
+              {isLoggingOut ? (
+                <Loader2 className="h-5 w-5 flex-shrink-0 animate-spin" />
+              ) : (
+                <LogOut className="h-5 w-5 flex-shrink-0" />
+              )}
+              {sidebarOpen && (
+                <span className="ml-3 font-medium">
+                  {isLoggingOut ? "Signing out..." : "Sign out"}
+                </span>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

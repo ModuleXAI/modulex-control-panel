@@ -250,9 +250,26 @@ class TokenManager {
   }
 
   logout() {
-    console.log('🚪 Logging out...');
+    console.log('�� Logging out...');
+    
+    // Clear refresh timeout
+    if (this.refreshTimeoutId) {
+      clearTimeout(this.refreshTimeoutId);
+      this.refreshTimeoutId = null;
+    }
+    
+    // Clear memory tokens
+    this.accessToken = null;
+    this.refreshToken = null;
+    this.baseUrl = '';
+    this.isRefreshing = false;
+    this.refreshPromise = null;
+    
+    // Clear storage
     this.clearTokensFromStorage();
     Cookies.remove('host-address');
+    
+    console.log('✅ Logout completed - all tokens cleared');
   }
 
   getAccessToken(): string | null {

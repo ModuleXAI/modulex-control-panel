@@ -1,15 +1,32 @@
-import { ApiResponse, ApiError, ModuleXStats, DashboardStatsResponse } from '@/types/api';
 import { Tool, ToolsResponse } from '@/types/tools';
 import { LogsResponse, LogFilters } from '@/types/logs';
+import { ApiResponse, DashboardStatsResponse } from '@/types/api';
 import { tokenManager } from './token-manager';
+import { useOrganizationStore } from '@/store/organization-store';
 
 class ApiClient {
   constructor() {
-    // Token manager handles the base URL and authentication
+    // Bind methods to preserve 'this' context
+    this.request = this.request.bind(this);
   }
 
   private getBaseUrl(): string {
-    return process.env.NEXT_PUBLIC_MODULEX_HOST || 'http://localhost:3000';
+    // Use the same environment variable as token manager
+    const envBaseUrl = process.env.NEXT_PUBLIC_MODULEX_HOST || '';
+    
+    // Also check if token manager has a stored base URL (from cookies)
+    const tokenManagerBaseUrl = tokenManager.getHostAddress();
+    
+    // Priority: Token manager stored URL > Environment variable
+    const baseUrl = tokenManagerBaseUrl || envBaseUrl;
+    
+    console.log('🌐 API Client - Base URL:', {
+      envBaseUrl,
+      tokenManagerBaseUrl,
+      finalBaseUrl: baseUrl
+    });
+    
+    return baseUrl;
   }
 
   private getHeaders(): Record<string, string> {
@@ -17,121 +34,244 @@ class ApiClient {
       'Content-Type': 'application/json',
     };
 
-    const accessToken = tokenManager.getAccessToken();
-    if (accessToken) {
-      headers['Authorization'] = `Bearer ${accessToken}`;
+    const token = tokenManager.getAccessToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
 
     return headers;
   }
 
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<T> {
-    // Use token manager for authenticated requests
-    return tokenManager.makeAuthenticatedRequest<T>(endpoint, options);
+  private addOrganizationId(url: string): string {
+    // Get selected organization ID from store
+    const selectedOrgId = useOrganizationStore.getState().getSelectedOrganizationId();
+    
+    console.log('🔧 API Client - Adding Organization ID:', {
+      originalUrl: url,
+      selectedOrgId,
+      timestamp: new Date().toISOString()
+    });
+
+    if (!selectedOrgId) {
+      console.warn('⚠️ API Client - No organization selected for URL:', url);
+      return url;
+    }
+
+    // Parse URL to add organization_id parameter
+    const baseUrl = this.getBaseUrl();
+    const urlObj = new URL(url, baseUrl);
+    urlObj.searchParams.set('organization_id', selectedOrgId);
+    
+    const finalUrl = urlObj.pathname + urlObj.search;
+    console.log('✅ API Client - Organization ID added:', {
+      originalUrl: url,
+      finalUrl,
+      orgId: selectedOrgId,
+      baseUrl
+    });
+    
+    return finalUrl;
   }
 
-  // Authentication is now handled by TokenManager
-  // Use tokenManager.login() instead of validateKey
+  private async request<T>(
+    endpoint: string,
+    options: RequestInit = {},
+    addOrgId: boolean = true
+  ): Promise<T> {
+    // Add organization_id parameter if needed
+    const finalEndpoint = addOrgId ? this.addOrganizationId(endpoint) : endpoint;
+    const baseUrl = this.getBaseUrl();
+    
+    console.log('🌐 API Client - Making Request:', {
+      originalEndpoint: endpoint,
+      finalEndpoint,
+      addOrgId,
+      method: options.method || 'GET',
+      baseUrl,
+      fullUrl: `${baseUrl}${finalEndpoint}`
+    });
+    
+    if (!baseUrl) {
+      throw new Error('Base URL not configured. Please check NEXT_PUBLIC_MODULEX_HOST environment variable.');
+    }
+    
+    try {
+      const response = await tokenManager.makeAuthenticatedRequest<T>(
+        finalEndpoint,
+        {
+          headers: this.getHeaders(),
+          ...options,
+        }
+      );
 
-  // Tools
+      console.log('✅ API Client - Request Success:', {
+        endpoint: finalEndpoint,
+        responseKeys: Object.keys(response || {}),
+        response: response
+      });
+
+      return response;
+    } catch (error) {
+      console.error('❌ API Client - Request Failed:', {
+        endpoint: finalEndpoint,
+        baseUrl,
+        error: error instanceof Error ? error.message : error
+      });
+      throw error;
+    }
+  }
+
+  // User Organizations (no org_id needed)
+  async getUserOrganizations(): Promise<any> {
+    return this.request('/auth/me/organizations', {}, false);
+  }
+
+  // User profile (no org_id needed)
+  async getCurrentUser(): Promise<any> {
+    return this.request('/auth/me', {}, false);
+  }
+
+  // User Tools (no org_id needed)
+  async getUserTools(): Promise<any> {
+    return this.request('/auth/tools', {}, false);
+  }
+
+  async updateUserToolStatus(toolName: string, isActive: boolean): Promise<any> {
+    return this.request(`/auth/tools/${toolName}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ is_active: isActive }),
+    }, false);
+  }
+
+  // Organization Tools (requires org_id)
   async getAvailableTools(): Promise<ToolsResponse> {
-    return this.request<ToolsResponse>('/integrations/not-installed');
+    return this.request('/tools/available');
   }
 
   async getInstalledTools(): Promise<ToolsResponse> {
-    return this.request<ToolsResponse>('/integrations/installed');
+    return this.request('/tools/user');
+  }
+
+  async getOpenAITools(): Promise<any> {
+    return this.request('/tools/openai-tools');
+  }
+
+  // Integration Management (requires org_id)
+  async getAvailableIntegrations(): Promise<ToolsResponse> {
+    return this.request('/integrations/not-installed');
+  }
+
+  async getInstalledIntegrations(): Promise<ToolsResponse> {
+    return this.request('/integrations/installed');
   }
 
   async installTool(toolName: string, config?: Record<string, any>): Promise<ApiResponse<Tool>> {
-    const body = JSON.stringify({
-      tool_name: toolName,
-      config_data: config || {}
-    });
-    
-    return this.request<ApiResponse<Tool>>('/integrations/install', {
+    return this.request(`/integrations/install`, {
       method: 'POST',
-      body,
-    });
-  }
-
-  async updateToolConfig(toolName: string, config: Record<string, any>): Promise<ApiResponse<any>> {
-    return this.request<ApiResponse<any>>(`/integrations/${toolName}/config`, {
-      method: 'PUT',
       body: JSON.stringify({
-        config_data: config
+        tool_name: toolName,
+        config,
       }),
     });
   }
 
-  // Dashboard
-  async getDashboardStats(): Promise<DashboardStatsResponse> {
-    return this.request<DashboardStatsResponse>('/dashboard/stats');
+  async uninstallTool(toolName: string): Promise<ApiResponse<any>> {
+    return this.request(`/integrations/${toolName}`, {
+      method: 'DELETE',
+    });
   }
 
-  // Logs
+  async updateToolConfig(toolName: string, config: Record<string, any>): Promise<ApiResponse<any>> {
+    return this.request(`/integrations/${toolName}/config`, {
+      method: 'PUT',
+      body: JSON.stringify({ config }),
+    });
+  }
+
+  // Dashboard (requires org_id)
+  async getDashboardStats(): Promise<DashboardStatsResponse> {
+    console.log('📊 API Client - Dashboard Stats Call Started');
+    return this.request('/dashboard/stats');
+  }
+
   async getLogs(filters: LogFilters): Promise<LogsResponse> {
     const params = new URLSearchParams();
     
-    if (filters.log_type) params.append('log_type', filters.log_type);
-    if (filters.level) params.append('level', filters.level);
-    if (filters.search) params.append('search', filters.search);
-    if (filters.start_date) params.append('start_date', filters.start_date);
-    if (filters.end_date) params.append('end_date', filters.end_date);
-    
-    params.append('limit', filters.limit.toString());
-    params.append('offset', filters.offset.toString());
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        params.append(key, value.toString());
+      }
+    });
 
-    const queryString = params.toString();
-    const endpoint = `/dashboard/logs${queryString ? `?${queryString}` : ''}`;
-    
-    return this.request<LogsResponse>(endpoint);
+    const endpoint = `/dashboard/logs?${params.toString()}`;
+    return this.request(endpoint);
   }
 
-  // Analytics endpoints
-  async getAnalyticsOverview(period: string): Promise<ApiResponse<any>> {
-    return this.request<ApiResponse<any>>(`/dashboard/analytics/overview?period=${period}`);
-  }
-
-  async getUserAnalytics(period: string): Promise<ApiResponse<any>> {
-    return this.request<ApiResponse<any>>(`/dashboard/analytics/users?period=${period}`);
-  }
-
-  async getToolAnalytics(period: string): Promise<ApiResponse<any>> {
-    return this.request<ApiResponse<any>>(`/dashboard/analytics/tools?period=${period}`);
-  }
-
-  async getPerformanceAnalytics(period: string): Promise<ApiResponse<any>> {
-    return this.request<ApiResponse<any>>(`/dashboard/analytics/performance?period=${period}`);
-  }
-
-  async getSecurityAnalytics(period: string): Promise<ApiResponse<any>> {
-    return this.request<ApiResponse<any>>(`/dashboard/analytics/security?period=${period}`);
-  }
-
-  // Users endpoints
   async getUsers(filters: any): Promise<any> {
     const params = new URLSearchParams();
     
-    if (filters.search) params.append('search', filters.search);
-    if (filters.status && filters.status !== 'all') params.append('status', filters.status);
-    if (filters.sortBy) params.append('sort_by', filters.sortBy);
-    if (filters.page) params.append('page', filters.page.toString());
-    if (filters.limit) params.append('limit', filters.limit.toString());
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        params.append(key, value.toString());
+      }
+    });
 
-    const queryString = params.toString();
-    const endpoint = `/dashboard/users${queryString ? `?${queryString}` : ''}`;
-    
-    return this.request<any>(endpoint);
+    const endpoint = `/dashboard/users?${params.toString()}`;
+    return this.request(endpoint);
   }
 
-
-
   async getUserDetail(userId: string): Promise<any> {
-    return this.request<any>(`/dashboard/users/${userId}`);
+    return this.request(`/dashboard/users/${userId}`);
+  }
+
+  // Tool execution (requires org_id)
+  async executeTool(toolName: string, action: string, parameters: any): Promise<any> {
+    return this.request(`/tools/${toolName}/execute`, {
+      method: 'POST',
+      body: JSON.stringify({
+        action,
+        parameters,
+      }),
+    });
+  }
+
+  // Analytics endpoints (requires org_id)
+  async getAnalyticsOverview(period: string): Promise<ApiResponse<any>> {
+    return this.request(`/dashboard/analytics/overview?period=${period}`);
+  }
+
+  async getUserAnalytics(period: string): Promise<ApiResponse<any>> {
+    return this.request(`/dashboard/analytics/users?period=${period}`);
+  }
+
+  async getToolAnalytics(period: string): Promise<ApiResponse<any>> {
+    return this.request(`/dashboard/analytics/tools?period=${period}`);
+  }
+
+  async getPerformanceAnalytics(period: string): Promise<ApiResponse<any>> {
+    return this.request(`/dashboard/analytics/performance?period=${period}`);
+  }
+
+  async getSecurityAnalytics(period: string): Promise<ApiResponse<any>> {
+    return this.request(`/dashboard/analytics/security?period=${period}`);
+  }
+
+  // OAuth URL generation (no org_id needed)
+  async getOAuthUrl(toolName: string): Promise<any> {
+    return this.request(`/auth/url/${toolName}`, {}, false);
+  }
+
+  // Manual authentication (no org_id needed)
+  async manualAuth(toolName: string, credentials: Record<string, any>): Promise<any> {
+    return this.request('/auth/manual', {
+      method: 'POST',
+      body: JSON.stringify({
+        tool_name: toolName,
+        credentials,
+      }),
+    }, false);
   }
 }
 
-export const apiClient = new ApiClient(); 
+export const apiClient = new ApiClient();
+export default ApiClient; 
