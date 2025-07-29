@@ -10,8 +10,6 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -21,16 +19,19 @@ import {
   Download, 
   Package,
   User,
-  Key,
   Activity,
   Info,
   CheckCircle,
   AlertTriangle,
   ExternalLink,
-  Settings
+  Settings,
+  ArrowRight,
+  ArrowLeft
 } from 'lucide-react';
 import { Tool } from '@/types/tools';
 import { useInstallTool } from '@/hooks/use-tools';
+import { AuthTypeSelector } from './auth-type-selector';
+import { EnvironmentVariablesForm } from './environment-variables-form';
 import { toast } from 'sonner';
 
 interface InstallToolDialogProps {
@@ -40,16 +41,59 @@ interface InstallToolDialogProps {
 
 export function InstallToolDialog({ tool, children }: InstallToolDialogProps) {
   const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<'auth' | 'config'>('auth');
+  const [selectedAuthType, setSelectedAuthType] = useState('');
   const [envVars, setEnvVars] = useState<Record<string, string>>({});
+  const [useCustomCredentials, setUseCustomCredentials] = useState(false);
   const installTool = useInstallTool();
 
+  // Reset state when dialog opens/closes
+  const handleOpenChange = (newOpen: boolean) => {
+    setOpen(newOpen);
+    if (!newOpen) {
+      setStep('auth');
+      setSelectedAuthType('');
+      setEnvVars({});
+      setUseCustomCredentials(false);
+    }
+  };
+
+  const handleAuthTypeSelect = (authType: string) => {
+    setSelectedAuthType(authType);
+    setEnvVars({}); // Reset env vars when auth type changes
+    setUseCustomCredentials(false); // Reset custom credentials when auth type changes
+    setStep('config');
+  };
+
+  const handleBack = () => {
+    setStep('auth');
+  };
+
   const handleInstall = async () => {
+    if (!selectedAuthType) {
+      toast.error('Please select an authentication method');
+      return;
+    }
+
     try {
-      console.log('🔧 Installing tool:', tool.name, envVars);
+      // For OAuth2 with system credentials, don't send environment variables
+      const isOAuth2WithSystemCredentials = selectedAuthType === 'oauth2' && 
+                                           tool.oauth2_env_available && 
+                                           !useCustomCredentials;
+      
+      const configToSend = isOAuth2WithSystemCredentials ? undefined : envVars;
+      
+      console.log('🔧 Installing tool:', tool.name, { 
+        authType: selectedAuthType, 
+        config: configToSend,
+        useCustomCredentials,
+        isOAuth2WithSystemCredentials
+      });
       
       await installTool.mutateAsync({
         toolName: tool.name,
-        config: envVars
+        authType: selectedAuthType,
+        config: configToSend
       });
       
       toast.success('Tool installed successfully!');
@@ -60,18 +104,39 @@ export function InstallToolDialog({ tool, children }: InstallToolDialogProps) {
     }
   };
 
-  const envVariables = tool.environment_variables || tool.setup_environment_variables || [];
-  const envVarsList = Array.isArray(envVariables) ? envVariables : 
-    Object.entries(envVariables).map(([key, value]) => ({
-      name: key,
-      description: typeof value === 'string' ? value : '',
-      required: true,
-      sample_format: '',
-      about_url: undefined
-    }));
+  // Get auth schemas from tool (new structure) or fallback to legacy structure
+  const authSchemas = tool.auth_schemas || [];
+  const selectedSchema = authSchemas.find(schema => schema.auth_type === selectedAuthType);
+
+
+
+  // Legacy fallback for tools without auth_schemas
+  const hasLegacyStructure = !tool.auth_schemas && (tool.environment_variables || tool.setup_environment_variables);
+  
+  if (hasLegacyStructure) {
+    // Auto-select single auth type for legacy tools
+    if (!selectedAuthType && authSchemas.length === 0) {
+      const legacyEnvVars = tool.environment_variables || tool.setup_environment_variables || [];
+      const envVarsList = Array.isArray(legacyEnvVars) ? legacyEnvVars : 
+        Object.entries(legacyEnvVars).map(([key, value]) => ({
+          name: key,
+          description: typeof value === 'string' ? value : '',
+          required: true,
+          sample_format: '',
+          about_url: undefined
+        }));
+      
+      // Create a fallback auth schema
+      authSchemas.push({
+        auth_type: 'manual',
+        setup_environment_variables: envVarsList,
+        system_has_oauth2_variables: false
+      });
+    }
+  }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
@@ -90,174 +155,58 @@ export function InstallToolDialog({ tool, children }: InstallToolDialogProps) {
             ) : (
               <Package className="h-4 w-4 text-blue-600" />
             )}
-            <span>Install {tool.display_name}</span>
+            <span>
+              {step === 'auth' ? 'Configure' : 'Install'} {tool.display_name}
+            </span>
+            {step === 'config' && selectedAuthType && (
+              <Badge variant="outline" className="text-xs">
+                {selectedAuthType.toUpperCase()}
+              </Badge>
+            )}
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Configure and install this integration to your ModuleX instance.
+            {step === 'auth' 
+              ? 'Choose your authentication method for this integration.'
+              : 'Configure environment variables and install the integration.'
+            }
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue={envVarsList.length > 0 ? "configure" : "info"} className="w-full flex flex-col flex-1 min-h-0">
-          <TabsList className="grid w-full grid-cols-3 flex-shrink-0 mb-3 h-8">
-            <TabsTrigger value="configure" className="flex items-center space-x-1 text-xs h-6">
-              <Settings className="h-3 w-3" />
-              <span>Configure</span>
-            </TabsTrigger>
-            <TabsTrigger value="actions" className="flex items-center space-x-1 text-xs h-6">
-              <Activity className="h-3 w-3" />
-              <span>Actions</span>
-            </TabsTrigger>
-            <TabsTrigger value="info" className="flex items-center space-x-1 text-xs h-6">
-              <Info className="h-3 w-3" />
-              <span>Info</span>
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="configure" className="flex-1 min-h-0 overflow-hidden">
+{/* Step-based Installation Flow */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          {step === 'auth' ? (
+            /* Auth Type Selection Step */
             <ScrollArea className="h-full">
-              <div className="space-y-2 p-1">
-                <Card>
-                  <CardHeader className="pb-1">
+              <div className="p-4">
+                <AuthTypeSelector 
+                  authSchemas={authSchemas}
+                  selectedAuthType={selectedAuthType}
+                  onAuthTypeChange={handleAuthTypeSelect}
+                  oauth2EnvAvailable={tool.oauth2_env_available}
+                />
+                
+                {/* Tool Info Preview */}
+                <Card className="mt-6">
+                  <CardHeader className="pb-3">
                     <CardTitle className="flex items-center space-x-2 text-sm">
-                      <Key className="h-3.5 w-3.5" />
-                      <span>Environment Variables</span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4 pt-0 -mt-1">
-                    {envVarsList.length > 0 ? (
-                      envVarsList.map((envVar, index) => (
-                        <div key={index} className="space-y-1 w-full">
-                          <div className="flex items-center justify-between">
-                            <Label htmlFor={envVar.name} className="text-xs font-medium">
-                              {envVar.name}
-                              {envVar.required && (
-                                <span className="text-red-500 ml-1">*</span>
-                              )}
-                            </Label>
-                            {envVar.about_url && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => window.open(envVar.about_url, '_blank')}
-                                className="h-6 w-6 p-0"
-                              >
-                                <ExternalLink className="h-3 w-3" />
-                              </Button>
-                            )}
-                          </div>
-                          <Input
-                            id={envVar.name}
-                            type={envVar.name.toLowerCase().includes('secret') || 
-                                  envVar.name.toLowerCase().includes('key') || 
-                                  envVar.name.toLowerCase().includes('password') ? 'password' : 'text'}
-                            placeholder={envVar.sample_format || `Enter ${envVar.name}`}
-                            value={envVars[envVar.name] || ''}
-                            onChange={(e) => setEnvVars(prev => ({
-                              ...prev,
-                              [envVar.name]: e.target.value
-                            }))}
-                            className="w-full max-w-full overflow-hidden text-ellipsis h-7 text-xs"
-                            style={{ 
-                              fontFamily: 'monospace',
-                              letterSpacing: envVar.name.toLowerCase().includes('secret') || 
-                                           envVar.name.toLowerCase().includes('key') || 
-                                           envVar.name.toLowerCase().includes('password') ? '0.1em' : 'normal'
-                            }}
-                          />
-                          {envVar.description && (
-                            <p className="text-xs text-muted-foreground leading-tight">
-                              {envVar.description}
-                            </p>
-                          )}
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-4 text-muted-foreground">
-                        <Key className="h-5 w-5 mx-auto mb-1.5 text-gray-300" />
-                        <p className="text-xs">No environment variables required for this tool.</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <div className="flex justify-end space-x-2 pt-1">
-                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button size="sm" className="h-7 text-xs" onClick={handleInstall} disabled={installTool.isPending}>
-                    <Download className="h-3 w-3 mr-1" />
-                    {installTool.isPending ? 'Installing...' : 'Install Tool'}
-                  </Button>
-                </div>
-              </div>
-            </ScrollArea>
-          </TabsContent>
-
-          <TabsContent value="actions" className="flex-1 min-h-0 overflow-hidden">
-            <ScrollArea className="h-full">
-              <div className="space-y-2 p-1">
-                <Card>
-                  <CardHeader className="pb-1">
-                    <CardTitle className="flex items-center space-x-2 text-sm">
-                      <Activity className="h-3.5 w-3.5" />
-                      <span>Available Actions</span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-0 -mt-1">
-                    {(tool.actions || tool.enabled_actions || []).length > 0 ? (
-                      <div className="space-y-2">
-                        {(tool.actions || tool.enabled_actions || []).map((action, index) => (
-                          <div key={index} className="flex items-start space-x-2.5 p-2.5 border rounded-md">
-                            <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                            <div className="flex-1">
-                              <h4 className="font-medium text-sm">
-                                {typeof action === 'string' ? action : action.name}
-                              </h4>
-                              {typeof action === 'object' && action.description && (
-                                <p className="text-xs text-muted-foreground mt-0.5 leading-tight">
-                                  {action.description}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-6 text-muted-foreground">
-                        <Activity className="h-6 w-6 mx-auto mb-2 text-gray-300" />
-                        <p className="text-sm">No actions available for this tool.</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            </ScrollArea>
-          </TabsContent>
-
-          <TabsContent value="info" className="flex-1 min-h-0 overflow-hidden">
-            <ScrollArea className="h-full">
-              <div className="space-y-2 p-1">
-                <Card>
-                  <CardHeader className="pb-1">
-                    <CardTitle className="flex items-center space-x-2 text-sm">
-                      <Info className="h-3.5 w-3.5" />
+                      <Info className="h-4 w-4" />
                       <span>Tool Information</span>
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-3 pt-0 -mt-4">
+                  <CardContent className="space-y-3">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div className="space-y-1">
-                        <Label className="text-xs font-medium">Display Name</Label>
+                        <p className="text-xs font-medium text-muted-foreground">Display Name</p>
                         <p className="text-sm">{tool.display_name}</p>
                       </div>
                       
                       <div className="space-y-1">
-                        <Label className="text-xs font-medium">Version</Label>
+                        <p className="text-xs font-medium text-muted-foreground">Version</p>
                         <Badge variant="outline" className="text-xs">{tool.version}</Badge>
                       </div>
                       
                       <div className="space-y-1">
-                        <Label className="text-xs font-medium">Author</Label>
+                        <p className="text-xs font-medium text-muted-foreground">Author</p>
                         <div className="flex items-center space-x-1.5">
                           <User className="h-3.5 w-3.5 text-gray-400" />
                           <span className="text-sm">{tool.author}</span>
@@ -266,7 +215,7 @@ export function InstallToolDialog({ tool, children }: InstallToolDialogProps) {
                       
                       {tool.app_url && (
                         <div className="space-y-1">
-                          <Label className="text-xs font-medium">Website</Label>
+                          <p className="text-xs font-medium text-muted-foreground">Website</p>
                           <div className="flex items-center space-x-1.5">
                             <ExternalLink className="h-3.5 w-3.5 text-gray-400" />
                             <a 
@@ -275,19 +224,18 @@ export function InstallToolDialog({ tool, children }: InstallToolDialogProps) {
                               rel="noopener noreferrer"
                               className="text-sm text-blue-600 hover:underline"
                             >
-                              {tool.app_url}
+                              Visit Website
                             </a>
                           </div>
                         </div>
                       )}
                     </div>
                     
-                    {/* Categories */}
                     {tool.categories && tool.categories.length > 0 && (
                       <>
                         <Separator />
                         <div className="space-y-2">
-                          <Label className="text-xs font-medium">Categories</Label>
+                          <p className="text-xs font-medium text-muted-foreground">Categories</p>
                           <div className="flex flex-wrap gap-1">
                             {tool.categories.map((category) => (
                               <Badge key={category.id} variant="outline" className="text-xs">
@@ -302,25 +250,91 @@ export function InstallToolDialog({ tool, children }: InstallToolDialogProps) {
                     <Separator />
                     
                     <div className="space-y-1">
-                      <Label className="text-xs font-medium">Description</Label>
+                      <p className="text-xs font-medium text-muted-foreground">Description</p>
                       <p className="text-sm text-muted-foreground leading-relaxed">{tool.description}</p>
                     </div>
-                    
-                    {/* Required Configuration Preview */}
-                    {envVarsList.length > 0 && (
-                      <div className="space-y-1">
-                        <Label className="text-xs font-medium">Required Configuration</Label>
-                        <div className="text-sm text-muted-foreground">
-                          {envVarsList.length} environment variable{envVarsList.length !== 1 ? 's' : ''} required
-                        </div>
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
+                
+                {/* Cancel Button */}
+                <div className="flex justify-end mt-6">
+                  <Button variant="outline" onClick={() => setOpen(false)}>
+                    Cancel
+                  </Button>
+                </div>
               </div>
             </ScrollArea>
-          </TabsContent>
-        </Tabs>
+          ) : (
+            /* Configuration Step */
+            <ScrollArea className="h-full">
+              <div className="p-4 space-y-4">
+                {selectedSchema && (
+                  <EnvironmentVariablesForm
+                    schema={selectedSchema}
+                    values={envVars}
+                    onChange={setEnvVars}
+                    useCustomCredentials={useCustomCredentials}
+                    onCustomCredentialsChange={setUseCustomCredentials}
+                    oauth2EnvAvailable={tool.oauth2_env_available}
+                  />
+                )}
+                
+                {/* Actions Preview */}
+                {(tool.actions || tool.enabled_actions || []).length > 0 && (
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center space-x-2 text-sm">
+                        <Activity className="h-4 w-4" />
+                        <span>Available Actions</span>
+                        <Badge variant="outline" className="text-xs">
+                          {(tool.actions || tool.enabled_actions || []).length}
+                        </Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {(tool.actions || tool.enabled_actions || []).slice(0, 4).map((action, index) => (
+                          <div key={index} className="flex items-center space-x-2 p-2 border rounded-md bg-gray-50">
+                            <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                            <span className="text-sm font-medium">
+                              {typeof action === 'string' ? action : action.name}
+                            </span>
+                          </div>
+                        ))}
+                        {(tool.actions || tool.enabled_actions || []).length > 4 && (
+                          <div className="text-xs text-muted-foreground p-2">
+                            +{(tool.actions || tool.enabled_actions || []).length - 4} more actions
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                
+                {/* Action Buttons */}
+                <div className="flex justify-between pt-4 border-t">
+                  <Button variant="outline" onClick={handleBack}>
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Back
+                  </Button>
+                  
+                  <div className="flex space-x-2">
+                    <Button variant="outline" onClick={() => setOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button 
+                      onClick={handleInstall} 
+                      disabled={installTool.isPending || !selectedAuthType}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      {installTool.isPending ? 'Installing...' : 'Install Tool'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </ScrollArea>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

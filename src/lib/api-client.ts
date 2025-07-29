@@ -1,4 +1,4 @@
-import { Tool, ToolsResponse } from '@/types/tools';
+import { Tool, ToolsResponse, ToolInstallationRequest } from '@/types/tools';
 import { LogsResponse, LogFilters } from '@/types/logs';
 import { ApiResponse, DashboardStatsResponse } from '@/types/api';
 import { tokenManager } from './token-manager';
@@ -165,12 +165,13 @@ class ApiClient {
     return this.request('/integrations/installed');
   }
 
-  async installTool(toolName: string, config?: Record<string, any>): Promise<ApiResponse<Tool>> {
+  async installTool(toolName: string, authType: string, config?: Record<string, any>): Promise<ApiResponse<Tool>> {
     return this.request(`/integrations/install`, {
       method: 'POST',
       body: JSON.stringify({
         tool_name: toolName,
-        config,
+        auth_type: authType, // NEW: Required auth type
+        environment_variables: config,
       }),
     });
   }

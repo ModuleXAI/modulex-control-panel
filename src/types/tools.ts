@@ -16,6 +16,20 @@ export interface Tool {
   created_at: string;
   updated_at: string;
   installed_at?: string;
+  // NEW: Auth schema support
+  auth_schemas?: AuthSchema[];
+  // NEW: OAuth2 system availability (tool level)
+  oauth2_env_available?: boolean;
+  // NEW: For installed tools
+  auth_type?: string;
+  env_source?: 'user_provided' | 'env_file' | 'mixed';
+}
+
+// NEW: Auth schema interface
+export interface AuthSchema {
+  auth_type: string;
+  setup_environment_variables: EnvironmentVariable[];
+  system_has_oauth2_variables?: boolean; // Only for OAuth2 schemas
 }
 
 export interface ToolCategory {
@@ -49,4 +63,11 @@ export interface ToolSearchFilters {
   installed?: boolean;
   enabled?: boolean;
   search?: string;
+}
+
+// NEW: Installation request interface
+export interface ToolInstallationRequest {
+  tool_name: string;
+  auth_type: string;
+  environment_variables?: Record<string, string>;
 } 

@@ -47,8 +47,12 @@ export const useInstallTool = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ toolName, config }: { toolName: string; config?: Record<string, any> }) => 
-      apiClient.installTool(toolName, config),
+    mutationFn: ({ toolName, authType, config }: { 
+      toolName: string; 
+      authType: string; 
+      config?: Record<string, any> 
+    }) => 
+      apiClient.installTool(toolName, authType, config),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tools'] });
       queryClient.invalidateQueries({ queryKey: ['integrations'] });
