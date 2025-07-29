@@ -4,6 +4,13 @@ import type { NextRequest } from 'next/server';
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
+  // Force log to verify middleware is running
+  console.log('🔥 MIDDLEWARE RUNNING:', {
+    pathname,
+    search: request.nextUrl.search,
+    href: request.nextUrl.href
+  });
+  
   // Get auth tokens and organization info from cookies
   const accessToken = request.cookies.get('access-token')?.value;
   const hostAddress = request.cookies.get('host-address')?.value;
@@ -30,6 +37,7 @@ export function middleware(request: NextRequest) {
   
   console.log('🔍 Middleware check:', {
     pathname,
+    search: request.nextUrl.search,
     isAuthenticated,
     hasSelectedOrganization,
     selectedOrganizationId: selectedOrganizationId ? selectedOrganizationId.substring(0, 8) + '...' : null
@@ -45,8 +53,13 @@ export function middleware(request: NextRequest) {
   // If authenticated and trying to access login page
   if (isAuthenticated && pathname === '/login') {
     if (hasSelectedOrganization) {
-      console.log('✅ Has organization, redirecting to dashboard');
+      console.log('✅ Has organization, redirecting to dashboard from login', {
+        originalSearch: request.nextUrl.search,
+        finalUrl: `/dashboard${request.nextUrl.search}`
+      });
       const dashboardUrl = new URL('/dashboard', request.url);
+      // Preserve query parameters if any
+      dashboardUrl.search = request.nextUrl.search;
       return NextResponse.redirect(dashboardUrl);
     } else {
       console.log('⚠️ No organization, redirecting to select organization');
@@ -58,8 +71,13 @@ export function middleware(request: NextRequest) {
   // If authenticated and trying to access root
   if (isAuthenticated && pathname === '/') {
     if (hasSelectedOrganization) {
-      console.log('✅ Has organization, redirecting to dashboard');
+      console.log('✅ Has organization, redirecting to dashboard from root', {
+        originalSearch: request.nextUrl.search,
+        finalUrl: `/dashboard${request.nextUrl.search}`
+      });
       const dashboardUrl = new URL('/dashboard', request.url);
+      // Preserve query parameters if any
+      dashboardUrl.search = request.nextUrl.search;
       return NextResponse.redirect(dashboardUrl);
     } else {
       console.log('⚠️ No organization, redirecting to select organization');
@@ -77,8 +95,13 @@ export function middleware(request: NextRequest) {
   
   // If authenticated and has organization but trying to access organization selection
   if (isAuthenticated && hasSelectedOrganization && isOrgSelectRoute) {
-    console.log('✅ Already has organization, redirecting to dashboard');
+    console.log('✅ Already has organization, redirecting to dashboard from org select', {
+      originalSearch: request.nextUrl.search,
+      finalUrl: `/dashboard${request.nextUrl.search}`
+    });
     const dashboardUrl = new URL('/dashboard', request.url);
+    // Preserve query parameters if any
+    dashboardUrl.search = request.nextUrl.search;
     return NextResponse.redirect(dashboardUrl);
   }
   

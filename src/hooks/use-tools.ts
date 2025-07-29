@@ -27,19 +27,21 @@ export const useOpenAITools = () => {
 };
 
 // Integration management (requires organization_id)
-export const useAvailableIntegrations = () => {
+export const useAvailableIntegrations = (options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: ['integrations', 'available'],
     queryFn: () => apiClient.getAvailableIntegrations(),
     select: (data) => data.tools,
+    enabled: options?.enabled ?? true,
   });
 };
 
-export const useInstalledIntegrations = () => {
+export const useInstalledIntegrations = (options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: ['integrations', 'installed'],
     queryFn: () => apiClient.getInstalledIntegrations(),
     select: (data) => data.tools,
+    enabled: options?.enabled ?? true,
   });
 };
 

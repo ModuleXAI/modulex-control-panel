@@ -158,7 +158,7 @@ class ApiClient {
 
   // Integration Management (requires org_id)
   async getAvailableIntegrations(): Promise<ToolsResponse> {
-    return this.request('/integrations/not-installed');
+    return this.request('/integrations/available');
   }
 
   async getInstalledIntegrations(): Promise<ToolsResponse> {

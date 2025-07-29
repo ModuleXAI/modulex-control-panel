@@ -8,7 +8,7 @@ import {
   SecurityAnalytics 
 } from '@/types/analytics';
 
-export const useAnalyticsOverview = (dateRange: string) => {
+export const useAnalyticsOverview = (dateRange: string, options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: ['analytics', 'overview', dateRange],
     queryFn: async () => {
@@ -18,10 +18,11 @@ export const useAnalyticsOverview = (dateRange: string) => {
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 2,
     refetchOnWindowFocus: false,
+    enabled: options?.enabled ?? true,
   });
 };
 
-export const useUserAnalytics = (dateRange: string) => {
+export const useUserAnalytics = (dateRange: string, options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: ['analytics', 'users', dateRange],
     queryFn: async () => {
@@ -31,6 +32,7 @@ export const useUserAnalytics = (dateRange: string) => {
     staleTime: 5 * 60 * 1000,
     retry: 2,
     refetchOnWindowFocus: false,
+    enabled: options?.enabled ?? true,
   });
 };
 

@@ -140,7 +140,7 @@ const mockUserDetail: UserDetail = {
   ]
 };
 
-export const useUsers = (filters: UserFilters) => {
+export const useUsers = (filters: UserFilters, options?: { enabled?: boolean }) => {
   const { isAuthenticated, token, hostAddress } = useAuthStore();
 
   return useQuery({
@@ -168,7 +168,7 @@ export const useUsers = (filters: UserFilters) => {
         };
       }
     },
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && (options?.enabled ?? true),
     staleTime: 30 * 1000, // 30 seconds
     retry: 1,
     refetchOnWindowFocus: false,
