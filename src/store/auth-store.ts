@@ -28,15 +28,8 @@ export const useAuthStore = create<AuthStore>()(
         const isTokenManagerAuthenticated = tokenManager.isAuthenticated();
         const hostAddress = tokenManager.getHostAddress();
         
-        console.log('🔄 Hydrating auth store:', { 
-          isTokenManagerAuthenticated,
-          hasHost: !!hostAddress,
-          currentIsAuthenticated: currentState.isAuthenticated,
-          hostAddress
-        });
         
         if (isTokenManagerAuthenticated && hostAddress && !currentState.isAuthenticated) {
-          console.log('✅ Auth state updated after hydration');
           
           set({
             isAuthenticated: true,
@@ -45,11 +38,6 @@ export const useAuthStore = create<AuthStore>()(
             hostAddress: hostAddress,
           });
         } else {
-          console.log('❌ Hydration skipped:', {
-            isTokenManagerAuthenticated,
-            hasHost: !!hostAddress,
-            alreadyAuthenticated: currentState.isAuthenticated
-          });
         }
       },
 
@@ -110,7 +98,6 @@ export const useAuthStore = create<AuthStore>()(
               useOrganizationStore.getState().clearOrganizations();
             });
           } catch (error) {
-            console.warn('Could not clear organization store:', error);
           }
         }
         

@@ -27,6 +27,17 @@ export function AuthTypeSelector({
   oauth2EnvAvailable = false,
   className 
 }: AuthTypeSelectorProps) {
+  
+  // Debug log for auth schemas
+  console.log('🔍 AuthTypeSelector Debug:', {
+    authSchemasCount: authSchemas.length,
+    authSchemas: authSchemas.map(s => ({ 
+      authType: s.auth_type, 
+      envVarsCount: s.setup_environment_variables.length 
+    })),
+    oauth2EnvAvailable,
+    selectedAuthType
+  });
   const getAuthTypeIcon = (authType: string) => {
     switch (authType.toLowerCase()) {
       case 'oauth2':

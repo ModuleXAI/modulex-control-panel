@@ -26,7 +26,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
     // Hydrate organization store on first load
     if (isAuthenticated && !hasHydrated) {
-      console.log('🏢 Dashboard: Starting organization hydration');
       hydrate();
       fetchUserOrganizations();
       setHasHydrated(true);

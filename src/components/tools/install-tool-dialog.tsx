@@ -2,18 +2,18 @@
 
 import { useState } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Download, 
@@ -22,10 +22,7 @@ import {
   Activity,
   Info,
   CheckCircle,
-  AlertTriangle,
   ExternalLink,
-  Settings,
-  ArrowRight,
   ArrowLeft
 } from 'lucide-react';
 import { Tool } from '@/types/tools';
@@ -37,10 +34,21 @@ import { toast } from 'sonner';
 interface InstallToolDialogProps {
   tool: Tool;
   children: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function InstallToolDialog({ tool, children }: InstallToolDialogProps) {
-  const [open, setOpen] = useState(false);
+export function InstallToolDialog({ 
+  tool, 
+  children, 
+  open: controlledOpen, 
+  onOpenChange: controlledOnOpenChange 
+}: InstallToolDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  
+  // Use controlled or internal state
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setOpen = controlledOnOpenChange || setInternalOpen;
   const [step, setStep] = useState<'auth' | 'config'>('auth');
   const [selectedAuthType, setSelectedAuthType] = useState('');
   const [envVars, setEnvVars] = useState<Record<string, string>>({});
@@ -49,16 +57,30 @@ export function InstallToolDialog({ tool, children }: InstallToolDialogProps) {
 
   // Reset state when dialog opens/closes
   const handleOpenChange = (newOpen: boolean) => {
-    setOpen(newOpen);
+    console.log('🚀 Install Dialog Open Change:', { newOpen, toolName: tool.name });
+    
     if (!newOpen) {
-      setStep('auth');
-      setSelectedAuthType('');
-      setEnvVars({});
-      setUseCustomCredentials(false);
+      // Add delay for close animation to complete
+      setTimeout(() => {
+        setOpen(newOpen);
+        setStep('auth');
+        setSelectedAuthType('');
+        setEnvVars({});
+        setUseCustomCredentials(false);
+      }, 150); // Wait for animation to complete
+    } else {
+      setOpen(newOpen);
     }
   };
 
   const handleAuthTypeSelect = (authType: string) => {
+    console.log('🔐 Auth Type Selected:', { 
+      authType, 
+      toolName: tool.name,
+      oauth2EnvAvailable: tool.oauth2_env_available,
+      hasAuthSchemas: !!tool.auth_schemas,
+      authSchemasCount: tool.auth_schemas?.length || 0
+    });
     setSelectedAuthType(authType);
     setEnvVars({}); // Reset env vars when auth type changes
     setUseCustomCredentials(false); // Reset custom credentials when auth type changes
@@ -81,13 +103,27 @@ export function InstallToolDialog({ tool, children }: InstallToolDialogProps) {
                                            tool.oauth2_env_available && 
                                            !useCustomCredentials;
       
-      const configToSend = isOAuth2WithSystemCredentials ? undefined : envVars;
+      let configToSend = undefined;
+      
+      if (!isOAuth2WithSystemCredentials) {
+        // For OAuth2 with custom credentials, filter out redirect_uri as it's read-only
+        if (selectedAuthType === 'oauth2') {
+          configToSend = Object.fromEntries(
+            Object.entries(envVars).filter(([key]) => key !== 'redirect_uri')
+          );
+        } else {
+          configToSend = envVars;
+        }
+      }
       
       console.log('🔧 Installing tool:', tool.name, { 
         authType: selectedAuthType, 
         config: configToSend,
         useCustomCredentials,
-        isOAuth2WithSystemCredentials
+        isOAuth2WithSystemCredentials,
+        oauth2EnvAvailable: tool.oauth2_env_available,
+        hasAuthSchemas: !!tool.auth_schemas,
+        envVarsCount: Object.keys(envVars).length
       });
       
       await installTool.mutateAsync({
@@ -136,48 +172,59 @@ export function InstallToolDialog({ tool, children }: InstallToolDialogProps) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
+      <SheetTrigger asChild>
         {children}
-      </DialogTrigger>
-      <DialogContent className="max-w-3xl h-[60vh] flex flex-col overflow-hidden">
-        <DialogHeader className="pb-3">
-          <DialogTitle className="flex items-center space-x-2 text-base">
+      </SheetTrigger>
+      <SheetContent 
+        className="w-full max-w-2xl flex flex-col p-0 sheet-content overflow-hidden rounded-l-3xl shadow-2xl backdrop-blur-sm bg-white" 
+        side="right"
+        style={{
+          height: '100vh',
+          width: '45vw',
+          maxWidth: '600px',
+          top: '0',
+          right: '0',
+          bottom: '0'
+        }}
+      >
+        <SheetHeader className="p-3 pb-2 border-b border-gray-200/20 bg-gradient-to-r from-blue-50/40 to-purple-50/40 backdrop-blur-sm rounded-tl-3xl">
+          <SheetTitle className="flex items-center space-x-3 text-xl font-semibold text-gray-800">
             {tool.logo ? (
               <img 
                 src={tool.logo} 
                 alt={tool.display_name}
-                className="h-5 w-5 rounded"
+                className="h-7 w-7 rounded-lg"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
                 }}
               />
             ) : (
-              <Package className="h-4 w-4 text-blue-600" />
+              <Package className="h-6 w-6 text-blue-600" />
             )}
             <span>
               {step === 'auth' ? 'Configure' : 'Install'} {tool.display_name}
             </span>
             {step === 'config' && selectedAuthType && (
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline" className="text-xs bg-blue-100 text-blue-700 border-blue-300">
                 {selectedAuthType.toUpperCase()}
               </Badge>
             )}
-          </DialogTitle>
-          <DialogDescription className="text-xs">
+          </SheetTitle>
+          <SheetDescription className="text-sm mt-3 text-gray-600 font-medium">
             {step === 'auth' 
               ? 'Choose your authentication method for this integration.'
               : 'Configure environment variables and install the integration.'
             }
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
 {/* Step-based Installation Flow */}
-        <div className="flex-1 min-h-0 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-hidden p-2">
           {step === 'auth' ? (
             /* Auth Type Selection Step */
-            <ScrollArea className="h-full">
-              <div className="p-4">
+            <ScrollArea className="h-full max-h-[calc(100vh-180px)] overflow-y-auto overflow-x-hidden">
+              <div className="pr-1">
                 <AuthTypeSelector 
                   authSchemas={authSchemas}
                   selectedAuthType={selectedAuthType}
@@ -256,18 +303,13 @@ export function InstallToolDialog({ tool, children }: InstallToolDialogProps) {
                   </CardContent>
                 </Card>
                 
-                {/* Cancel Button */}
-                <div className="flex justify-end mt-6">
-                  <Button variant="outline" onClick={() => setOpen(false)}>
-                    Cancel
-                  </Button>
-                </div>
+
               </div>
             </ScrollArea>
           ) : (
             /* Configuration Step */
-            <ScrollArea className="h-full">
-              <div className="p-4 space-y-4">
+            <ScrollArea className="h-full max-h-[calc(100vh-180px)] overflow-y-auto overflow-x-hidden">
+              <div className="space-y-4 pr-1 pb-4">
                 {selectedSchema && (
                   <EnvironmentVariablesForm
                     schema={selectedSchema}
@@ -311,31 +353,46 @@ export function InstallToolDialog({ tool, children }: InstallToolDialogProps) {
                   </Card>
                 )}
                 
-                {/* Action Buttons */}
-                <div className="flex justify-between pt-4 border-t">
-                  <Button variant="outline" onClick={handleBack}>
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Back
-                  </Button>
-                  
-                  <div className="flex space-x-2">
-                    <Button variant="outline" onClick={() => setOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button 
-                      onClick={handleInstall} 
-                      disabled={installTool.isPending || !selectedAuthType}
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      {installTool.isPending ? 'Installing...' : 'Install Tool'}
-                    </Button>
-                  </div>
-                </div>
+
               </div>
             </ScrollArea>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+
+        {/* Sticky Footer with Action Buttons */}
+        <div className="border-t border-gray-200/30 bg-white/98 backdrop-blur-sm p-4 shadow-lg mt-auto">
+          {step === 'auth' ? (
+            /* Auth Step Footer - Only Cancel */
+            <div className="flex justify-end">
+              <Button variant="outline" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            /* Config Step Footer - Back, Cancel, Install */
+            <div className="flex justify-between items-center">
+              <Button variant="outline" onClick={handleBack}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+              
+              <div className="flex space-x-3">
+                <Button variant="outline" onClick={() => setOpen(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleInstall} 
+                  disabled={installTool.isPending || !selectedAuthType}
+                  className="min-w-[120px]"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  {installTool.isPending ? 'Installing...' : 'Install Tool'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 } 

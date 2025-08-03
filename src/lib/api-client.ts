@@ -20,12 +20,6 @@ class ApiClient {
     // Priority: Token manager stored URL > Environment variable
     const baseUrl = tokenManagerBaseUrl || envBaseUrl;
     
-    console.log('🌐 API Client - Base URL:', {
-      envBaseUrl,
-      tokenManagerBaseUrl,
-      finalBaseUrl: baseUrl
-    });
-    
     return baseUrl;
   }
 
@@ -45,15 +39,8 @@ class ApiClient {
   private addOrganizationId(url: string): string {
     // Get selected organization ID from store
     const selectedOrgId = useOrganizationStore.getState().getSelectedOrganizationId();
-    
-    console.log('🔧 API Client - Adding Organization ID:', {
-      originalUrl: url,
-      selectedOrgId,
-      timestamp: new Date().toISOString()
-    });
-
+  
     if (!selectedOrgId) {
-      console.warn('⚠️ API Client - No organization selected for URL:', url);
       return url;
     }
 
@@ -63,12 +50,6 @@ class ApiClient {
     urlObj.searchParams.set('organization_id', selectedOrgId);
     
     const finalUrl = urlObj.pathname + urlObj.search;
-    console.log('✅ API Client - Organization ID added:', {
-      originalUrl: url,
-      finalUrl,
-      orgId: selectedOrgId,
-      baseUrl
-    });
     
     return finalUrl;
   }
@@ -82,14 +63,7 @@ class ApiClient {
     const finalEndpoint = addOrgId ? this.addOrganizationId(endpoint) : endpoint;
     const baseUrl = this.getBaseUrl();
     
-    console.log('🌐 API Client - Making Request:', {
-      originalEndpoint: endpoint,
-      finalEndpoint,
-      addOrgId,
-      method: options.method || 'GET',
-      baseUrl,
-      fullUrl: `${baseUrl}${finalEndpoint}`
-    });
+  
     
     if (!baseUrl) {
       throw new Error('Base URL not configured. Please check NEXT_PUBLIC_MODULEX_HOST environment variable.');
@@ -104,19 +78,10 @@ class ApiClient {
         }
       );
 
-      console.log('✅ API Client - Request Success:', {
-        endpoint: finalEndpoint,
-        responseKeys: Object.keys(response || {}),
-        response: response
-      });
-
+      
       return response;
     } catch (error) {
-      console.error('❌ API Client - Request Failed:', {
-        endpoint: finalEndpoint,
-        baseUrl,
-        error: error instanceof Error ? error.message : error
-      });
+     
       throw error;
     }
   }
@@ -191,7 +156,6 @@ class ApiClient {
 
   // Dashboard (requires org_id)
   async getDashboardStats(): Promise<DashboardStatsResponse> {
-    console.log('📊 API Client - Dashboard Stats Call Started');
     return this.request('/dashboard/stats');
   }
 

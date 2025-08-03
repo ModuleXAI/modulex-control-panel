@@ -45,6 +45,7 @@ import { useOrganizationStore } from '@/store/organization-store';
 import { useAuthStore } from '@/store/auth-store';
 import { Tool } from '@/types/tools';
 import { User } from '@/types/users';
+import { InstallToolDialog } from '@/components/tools/install-tool-dialog';
 
 // Tab configuration
 const TABS = ['Overview', 'Browse Tools', 'My Tools', 'Analytics', 'Users', 'Logs', 'Settings'] as const;
@@ -97,15 +98,6 @@ export default function DashboardPage() {
       localStorage.setItem('dashboard-current-tab', tabParam);
     }
     
-    console.log('🔍 Tab Resolution:', {
-      searchParamsTab: searchParams.get('tab'),
-      windowLocationSearch: typeof window !== 'undefined' ? window.location.search : 'SSR',
-      resolvedTabParam: tabParam,
-      finalTab: resolvedTab,
-      allParams: Object.fromEntries(searchParams.entries()),
-      localStorageBackup: typeof window !== 'undefined' ? localStorage.getItem('dashboard-current-tab') : 'SSR'
-    });
-    
     return resolvedTab;
   }, [searchParams]);
 
@@ -131,14 +123,6 @@ export default function DashboardPage() {
 
   // Debug current state with more details
   useEffect(() => {
-    console.log('🎯 Current State:', {
-      currentTab,
-      pathname,
-      searchParams: Object.fromEntries(searchParams.entries()),
-      windowLocation: typeof window !== 'undefined' ? window.location.href : 'SSR',
-      windowSearch: typeof window !== 'undefined' ? window.location.search : 'SSR',
-      historyLength: typeof window !== 'undefined' ? window.history.length : 'SSR'
-    });
   }, [currentTab, pathname, searchParams]);
 
   // Track URL changes
@@ -231,6 +215,23 @@ export default function DashboardPage() {
     enabled: shouldLoadBrowseTools
   });
   
+  // Debug available tools for OAuth2
+  useEffect(() => {
+    if (availableTools && shouldLoadBrowseTools) {
+      console.log('🔧 Available Tools Debug:', {
+        totalTools: availableTools.length,
+        oauth2Tools: availableTools.filter(t => 
+          t.auth_schemas?.some(schema => schema.auth_type === 'oauth2')
+        ).map(t => ({
+          name: t.name,
+          displayName: t.display_name,
+          oauth2EnvAvailable: t.oauth2_env_available,
+          authSchemas: t.auth_schemas?.map(s => s.auth_type) || []
+        }))
+      });
+    }
+  }, [availableTools, shouldLoadBrowseTools]);
+  
   const { data: installedTools } = useInstalledIntegrations({
     enabled: shouldLoadMyTools || shouldLoadAnalytics
   });
@@ -271,6 +272,13 @@ export default function DashboardPage() {
   }, [handleTabChange]);
 
   const handleToolInstall = useCallback((tool: Tool) => {
+    console.log('🚀 Install Tool Clicked:', { 
+      toolName: tool.name, 
+      displayName: tool.display_name,
+      oauth2EnvAvailable: tool.oauth2_env_available,
+      hasAuthSchemas: !!tool.auth_schemas 
+    });
+    
     // Reset any previous state
     setIsClosing(false);
     setShowInstallDialog(false);
@@ -278,6 +286,7 @@ export default function DashboardPage() {
     setSelectedToolForInstall(tool);
     // Then show dialog after state updates
     setTimeout(() => {
+      console.log('⏰ Opening Install Dialog for:', tool.name);
       setShowInstallDialog(true);
     }, 10);
   }, []);
@@ -756,166 +765,24 @@ response = openai_client.chat.completions.create(
   };
 
   const renderInstallDialog = () => {
-    if (!showInstallDialog || !selectedToolForInstall) return null;
+    if (!selectedToolForInstall) return null;
 
-          return (
-        <>
-          {/* Invisible backdrop for closing */}
-          <div 
-            className="fixed inset-0 z-[60]"
-            onClick={handleCloseInstallDialog}
-          ></div>
-          
-          {/* Slide-out Panel */}
-          <div 
-            className={`fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-2xl z-[70] flex flex-col ${
-              isClosing ? 'animate-slide-out-right' : 'animate-slide-in-right'
-            }`}
-            onClick={(e) => e.stopPropagation()}
-          >
-          {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gray-50">
-            <div className="flex items-center gap-3">
-              <img src={selectedToolForInstall.logo} alt={selectedToolForInstall.display_name} className="w-8 h-8 rounded-lg" />
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">Install {selectedToolForInstall.display_name}</h2>
-                <p className="text-sm text-gray-500">Configure and install this tool</p>
-              </div>
-            </div>
-            <button
-              onClick={handleCloseInstallDialog}
-              className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto p-6">
-            <div className="space-y-6">
-              {/* Tool Info */}
-              <div className="bg-gray-50 rounded-xl p-4">
-                <div className="flex items-start gap-4">
-                  <img src={selectedToolForInstall.logo} alt={selectedToolForInstall.display_name} className="w-12 h-12 rounded-lg" />
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900">{selectedToolForInstall.display_name}</h3>
-                    <p className="text-sm text-gray-600 mt-1">{selectedToolForInstall.description}</p>
-                    <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
-                      <div className="flex items-center gap-1">
-                        <Grid3X3 className="w-4 h-4" />
-                        <span>{selectedToolForInstall.actions?.length || 0} actions</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Globe className="w-4 h-4" />
-                        <span>v{selectedToolForInstall.version}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Authentication Method Selection */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Choose Authentication Method
-                </label>
-                <div className="space-y-3">
-                  {selectedToolForInstall.auth_schemas?.map((schema, index) => (
-                    <div key={index} className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors cursor-pointer">
-                      <div className="flex items-start gap-3">
-                        <input 
-                          type="radio" 
-                          name="auth_method" 
-                          value={schema.auth_type}
-                          defaultChecked={index === 0}
-                          className="mt-1"
-                        />
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${getAuthTypeColor(schema.auth_type)}`}>
-                              {schema.auth_type.toUpperCase()}
-                            </span>
-                            {schema.system_has_oauth2_variables && (
-                              <span className="px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
-                                System Available
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            {schema.auth_type === 'oauth2' && 'Secure OAuth2 authentication flow'}
-                            {schema.auth_type === 'api_key' && 'API key based authentication'}
-                            {schema.auth_type === 'bearer_token' && 'Bearer token authentication'}
-                          </div>
-                          {schema.setup_environment_variables && schema.setup_environment_variables.length > 0 && (
-                            <div className="mt-2 text-xs text-gray-500">
-                              Requires: {schema.setup_environment_variables.map(env => env.name).join(', ')}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Security Notice */}
-              <div className="bg-blue-50 rounded-lg p-4">
-                <div className="flex items-start gap-3">
-                  <Shield className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <h4 className="text-sm font-medium text-blue-900 mb-1">Secure Installation</h4>
-                    <p className="text-xs text-blue-700 leading-relaxed">
-                      This tool will be securely installed to your organization. All authentication credentials 
-                      are encrypted and stored safely. You can modify or remove this tool at any time.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Installation Steps Preview */}
-              <div className="border border-gray-200 rounded-lg p-4">
-                <h4 className="text-sm font-medium text-gray-900 mb-3">What happens next?</h4>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-3 text-sm text-gray-600">
-                    <div className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-xs font-medium text-blue-600">1</span>
-                    </div>
-                    <span>Tool will be added to your organization</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-sm text-gray-600">
-                    <div className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-xs font-medium text-blue-600">2</span>
-                    </div>
-                    <span>Authentication credentials will be configured</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-sm text-gray-600">
-                    <div className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-xs font-medium text-blue-600">3</span>
-                    </div>
-                    <span>Tool will be ready for use in your workflows</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="border-t border-gray-200 p-6 bg-gray-50">
-            <div className="flex gap-3">
-              <button
-                onClick={handleCloseInstallDialog}
-                className="flex-1 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
-                <Plus className="w-4 h-4" />
-                Install Tool
-              </button>
-            </div>
-          </div>
-        </div>
-      </>
+    return (
+      <InstallToolDialog 
+        tool={selectedToolForInstall}
+        open={showInstallDialog}
+        onOpenChange={(open) => {
+          console.log('🔄 Install Dialog State Change:', { open, toolName: selectedToolForInstall.name });
+          if (!open) {
+            handleCloseInstallDialog();
+          } else {
+            setShowInstallDialog(true);
+          }
+        }}
+      >
+        {/* Empty trigger since we control via props */}
+        <span />
+      </InstallToolDialog>
     );
   };
 

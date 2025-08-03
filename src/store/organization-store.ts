@@ -29,12 +29,7 @@ export const useOrganizationStore = create<OrganizationStore>()(
         const cookieOrgId = Cookies.get('selected-organization-id');
         const currentState = get();
         
-        console.log('🏢 Organization store hydrating:', {
-          cookieOrgId,
-          currentSelected: currentState.selectedOrganizationId,
-          hasOrganizations: currentState.organizations.length > 0
-        });
-        
+
         // If we have a cookie org ID but no current selection, restore it
         if (cookieOrgId && !currentState.selectedOrganizationId && currentState.organizations.length > 0) {
           const organization = currentState.organizations.find(org => org.id === cookieOrgId);
@@ -55,23 +50,15 @@ export const useOrganizationStore = create<OrganizationStore>()(
 
         // Check cookie first
         const cookieOrgId = Cookies.get('selected-organization-id');
-        
-        console.log('🏢 Setting organizations:', {
-          count: organizations.length,
-          cookieOrgId,
-          currentSelectedId: selectedId
-        });
 
         // Priority: Cookie > Current selection > Default org > First org
         if (cookieOrgId && organizations.find(org => org.id === cookieOrgId)) {
           selectedOrg = organizations.find(org => org.id === cookieOrgId) || null;
           selectedId = cookieOrgId;
-          console.log('✅ Using organization from cookie:', selectedOrg?.name);
         } else if (!selectedId && organizations.length > 0) {
           const defaultOrg = organizations.find(org => org.is_default) || organizations[0];
           selectedOrg = defaultOrg;
           selectedId = defaultOrg.id;
-          console.log('✅ Auto-selecting default organization:', selectedOrg.name);
         } else if (selectedId) {
           // Update selected organization if it exists in new list
           selectedOrg = organizations.find(org => org.id === selectedId) || null;
@@ -113,7 +100,6 @@ export const useOrganizationStore = create<OrganizationStore>()(
           selectedOrganization: organization || null,
         });
 
-        console.log('🏢 Organization selected:', organization?.name);
 
         // Clear organization-dependent query cache
         if (typeof window !== 'undefined') {

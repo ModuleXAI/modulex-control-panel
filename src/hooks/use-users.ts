@@ -146,7 +146,6 @@ export const useUsers = (filters: UserFilters, options?: { enabled?: boolean }) 
   return useQuery({
     queryKey: ['users', filters],
     queryFn: async () => {
-      console.log('🔍 useUsers - Auth state:', { isAuthenticated, hasToken: !!token, hasHost: !!hostAddress });
       
       // Ensure API client has credentials
       if (isAuthenticated && token && hostAddress) {
@@ -178,19 +177,10 @@ export const useUsers = (filters: UserFilters, options?: { enabled?: boolean }) 
 export const useUserStats = () => {
   const { isAuthenticated, token, hostAddress } = useAuthStore();
 
-  console.log('🔍 [useUserStats] Hook called with auth state:', { 
-    isAuthenticated, 
-    hasToken: !!token, 
-    hasHost: !!hostAddress,
-    token: token?.substring(0, 10) + '...',
-    hostAddress 
-  });
 
   return useQuery({
     queryKey: ['users', 'stats'],
     queryFn: async () => {
-      console.log('📊 [useUserStats] Query function executing...');
-      console.log('🔍 [useUserStats] Auth state inside queryFn:', { isAuthenticated, hasToken: !!token, hasHost: !!hostAddress });
       
       // Always return mock data for now to test the flow
       const users = mockUsers;
@@ -258,9 +248,6 @@ export const useUserDetail = (userId: string) => {
   return useQuery({
     queryKey: ['users', userId],
     queryFn: async () => {
-      console.log('🔍 useUserDetail - userId:', userId);
-      console.log('🔍 useUserDetail - Auth state:', { isAuthenticated, hasToken: !!token, hasHost: !!hostAddress });
-      
       // Ensure API client has credentials
       if (isAuthenticated && token && hostAddress) {
         apiClient.setCredentials(hostAddress, token);

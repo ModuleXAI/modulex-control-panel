@@ -13,16 +13,10 @@ export function AuthHydration({ children }: AuthHydrationProps) {
   const user = useAuthStore((state) => state.user);
 
   useEffect(() => {
-    console.log('🔄 Auth Hydration - Starting hydration process');
     hydrate();
   }, [hydrate]);
 
   useEffect(() => {
-    console.log('🔍 Auth State Changed:', {
-      isAuthenticated,
-      user: user ? { id: user.id, email: user.email } : null,
-      timestamp: new Date().toISOString()
-    });
   }, [isAuthenticated, user]);
 
   return <>{children}</>;
