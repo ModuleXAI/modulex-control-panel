@@ -88,6 +88,21 @@ export const useUpdateToolConfig = () => {
   });
 };
 
+export const useUpdateToolEnvironment = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ toolName, environmentVariables }: { 
+      toolName: string; 
+      environmentVariables: Record<string, string> 
+    }) => apiClient.updateToolEnvironment(toolName, environmentVariables),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tools'] });
+      queryClient.invalidateQueries({ queryKey: ['integrations'] });
+    },
+  });
+};
+
 export const useExecuteTool = () => {
   return useMutation({
     mutationFn: ({ toolName, action, parameters }: { 

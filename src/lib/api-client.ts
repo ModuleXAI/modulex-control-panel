@@ -154,6 +154,13 @@ class ApiClient {
     });
   }
 
+  async updateToolEnvironment(toolName: string, environmentVariables: Record<string, string>): Promise<ApiResponse<any>> {
+    return this.request(`/integrations/${toolName}/environment`, {
+      method: 'PUT',
+      body: JSON.stringify({ environment_variables: environmentVariables }),
+    });
+  }
+
   // Dashboard (requires org_id)
   async getDashboardStats(): Promise<DashboardStatsResponse> {
     return this.request('/dashboard/stats');
@@ -234,6 +241,14 @@ class ApiClient {
         tool_name: toolName,
         credentials,
       }),
+    }, false);
+  }
+
+  // Create organization (no org_id needed)
+  async createOrganization(organizationData: { slug: string; domain: string; name: string }): Promise<any> {
+    return this.request('/organizations/', {
+      method: 'POST',
+      body: JSON.stringify(organizationData),
     }, false);
   }
 }

@@ -33,11 +33,17 @@ import {
   Settings,
   Code,
   BookOpen,
-  Wrench
+  Wrench,
+  Check
 } from 'lucide-react';
 
 // Import existing components and hooks
-import { useAvailableIntegrations, useInstalledIntegrations } from '@/hooks/use-tools';
+import { 
+  useAvailableIntegrations, 
+  useInstalledIntegrations, 
+  useUninstallTool, 
+  useUpdateToolEnvironment 
+} from '@/hooks/use-tools';
 import { useAnalyticsOverview, useUserAnalytics } from '@/hooks/use-analytics';
 import { useUsers } from '@/hooks/use-users';
 import { useLogs } from '@/hooks/use-logs';
@@ -46,6 +52,13 @@ import { useAuthStore } from '@/store/auth-store';
 import { Tool } from '@/types/tools';
 import { User } from '@/types/users';
 import { InstallToolDialog } from '@/components/tools/install-tool-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 // Tab configuration
 const TABS = ['Overview', 'Browse Tools', 'My Tools', 'Analytics', 'Users', 'Logs', 'Settings'] as const;
@@ -116,10 +129,45 @@ export default function DashboardPage() {
   const [showInstallDialog, setShowInstallDialog] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [selectedToolForInstall, setSelectedToolForInstall] = useState<Tool | null>(null);
+  const [showUninstallConfirm, setShowUninstallConfirm] = useState(false);
+
+  // API Hooks for tool management
+  const uninstallTool = useUninstallTool();
+  const updateToolEnvironment = useUpdateToolEnvironment();
 
   // Store data
-  const { selectedOrganization } = useOrganizationStore();
+  const { selectedOrganization, organizations, selectOrganization } = useOrganizationStore();
   const { user } = useAuthStore();
+
+  // Check if user has 5+ owner roles
+  const hasMaxOwnerRoles = useMemo(() => {
+    const ownerCount = organizations.filter(org => org.role === 'owner').length;
+    return ownerCount >= 5;
+  }, [organizations]);
+
+  // Sort organizations with selected one first
+  const sortedOrganizations = useMemo(() => {
+    if (!selectedOrganization) return organizations;
+    
+    const selected = organizations.filter(org => org.id === selectedOrganization.id);
+    const others = organizations.filter(org => org.id !== selectedOrganization.id);
+    
+    return [...selected, ...others];
+  }, [organizations, selectedOrganization]);
+
+  // Handle organization selection
+  const handleOrganizationSelect = (organizationId: string) => {
+    selectOrganization(organizationId);
+  };
+
+  // Handle new organization creation
+  const handleCreateNewOrganization = () => {
+    router.push('/dashboard/create-organization');
+  };
+
+  // Data queries
+  const { data: availableIntegrations } = useAvailableIntegrations();
+  const { data: installedIntegrations } = useInstalledIntegrations();
 
   // Debug current state with more details
   useEffect(() => {
@@ -863,7 +911,216 @@ response = openai_client.chat.completions.create(
     );
   };
 
-  const renderMyTools = () => (
+  // Tool detail view component
+  const renderInstalledToolDetail = () => {
+    if (!selectedInstalledTool) return null;
+
+    return (
+      <div>
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => setSelectedInstalledTool(null)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5 text-gray-600" />
+              </button>
+              <div className="flex items-center gap-3">
+                <img 
+                  src={selectedInstalledTool.logo} 
+                  alt={selectedInstalledTool.display_name} 
+                  className="w-12 h-12 rounded-lg" 
+                />
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">{selectedInstalledTool.display_name}</h1>
+                  <span className="text-sm text-gray-500 uppercase tracking-wide font-medium">{selectedInstalledTool.name}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <button 
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                onClick={() => {
+                  if (selectedInstalledTool?.app_url) {
+                    window.open(selectedInstalledTool.app_url, '_blank');
+                  }
+                }}
+              >
+                <ExternalLink className="w-4 h-4" />
+                View Documentation
+              </button>
+              <button 
+                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 flex items-center gap-2"
+                onClick={() => setShowUninstallConfirm(true)}
+                disabled={uninstallTool.isPending}
+              >
+                <Trash2 className="w-4 h-4" />
+                {uninstallTool.isPending ? 'Uninstalling...' : 'Uninstall'}
+              </button>
+            </div>
+          </div>
+
+          {/* Description */}
+          <p className="text-gray-600 mb-6 max-w-4xl leading-relaxed">{selectedInstalledTool.description}</p>
+
+          {/* Status and Info */}
+          <div className="flex items-center gap-6 mb-6">
+            <span className={`px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800`}>
+              INSTALLED
+            </span>
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getAuthTypeColor(selectedInstalledTool.auth_type || 'api_key')}`}>
+              {(selectedInstalledTool.auth_type || 'API_KEY').toUpperCase()}
+            </span>
+            <div className="flex items-center gap-4 text-sm text-gray-600">
+              <div className="flex items-center gap-1">
+                <Grid3X3 className="w-4 h-4" />
+                <span>{selectedInstalledTool.enabled_actions?.length || 0} Actions</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Clock className="w-4 h-4" />
+                <span>Installed {formatDate(selectedInstalledTool.installed_at)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Sub Navigation */}
+          <div className="flex space-x-8">
+            {['Actions', 'Environment', 'Settings'].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveToolTab(tab)}
+                className={`py-2 px-1 border-b-2 text-sm font-medium ${
+                  activeToolTab === tab
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Content */}
+        <div>
+          {activeToolTab === 'Actions' && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">Actions</h2>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <input
+                    type="text"
+                    placeholder="Search actions"
+                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent w-80"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                {(selectedInstalledTool.enabled_actions || []).map((action, index) => (
+                  <div key={index} className={`flex items-start justify-between p-4 hover:bg-gray-50 transition-colors ${
+                    index !== (selectedInstalledTool.enabled_actions?.length || 0) - 1 ? 'border-b border-gray-200' : ''
+                  }`}>
+                    <div className="flex-shrink-0 w-80">
+                      <h3 className="text-sm font-medium text-gray-900">{action.name}</h3>
+                    </div>
+                    <div className="flex-1 ml-6">
+                      <p className="text-sm text-gray-600 leading-relaxed">{action.description}</p>
+                    </div>
+                    <div className="ml-4">
+                      <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded">
+                        ENABLED
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeToolTab === 'Environment' && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">Environment Variables</h2>
+                <button 
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+                  onClick={() => {
+                    if (selectedInstalledTool?.name && selectedInstalledTool?.environment_variables) {
+                      const envVars: Record<string, string> = {};
+                      Object.entries(selectedInstalledTool.environment_variables).forEach(([key, value]) => {
+                        if (typeof value === 'string') {
+                          envVars[key] = value;
+                        }
+                      });
+                      
+                      updateToolEnvironment.mutate({
+                        toolName: selectedInstalledTool.name,
+                        environmentVariables: envVars
+                      });
+                    }
+                  }}
+                  disabled={updateToolEnvironment.isPending}
+                >
+                  {updateToolEnvironment.isPending ? 'Updating...' : 'Update Variables'}
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {selectedInstalledTool.environment_variables && Object.entries(selectedInstalledTool.environment_variables).map(([key, value]) => (
+                  <div key={key} className="bg-white rounded-lg border border-gray-200 p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm font-medium text-gray-700">{key}</label>
+                      <span className="px-2 py-1 text-xs font-medium rounded bg-green-100 text-green-800">
+                        CONFIGURED
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="password"
+                        value={typeof value === 'string' ? value : ''}
+                        readOnly
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 font-mono text-sm"
+                      />
+                      <button className="p-2 text-gray-500 hover:text-gray-700">
+                        <Copy className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeToolTab === 'Settings' && (
+            <div className="space-y-8">
+              <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Tool Configuration</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  This tool is installed and ready to use. You can manage its environment variables in the Environment tab or uninstall it using the uninstall button in the header.
+                </p>
+                <div className="flex items-center gap-2 text-sm text-green-600">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  Tool is active and configured
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderMyTools = () => {
+    // If an installed tool is selected, show the detail page
+    if (selectedInstalledTool) {
+      return renderInstalledToolDetail();
+    }
+
+    return (
     <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
@@ -875,10 +1132,6 @@ response = openai_client.chat.completions.create(
           >
             <Grid3X3 className="w-4 h-4" />
             Browse All Tools
-          </button>
-          <button className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 flex items-center gap-2">
-            <Plus className="w-4 h-4" />
-            Install Tool
           </button>
         </div>
       </div>
@@ -920,7 +1173,7 @@ response = openai_client.chat.completions.create(
 
       {/* Tools Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {(installedTools || []).map((tool) => (
+        {(installedTools || []).map((tool: any) => (
           <div 
             key={tool.id} 
             className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer"
@@ -956,7 +1209,8 @@ response = openai_client.chat.completions.create(
         ))}
       </div>
     </div>
-  );
+    );
+  };
 
   // Import the analytics render function from the transformed analytics page
   const renderAnalytics = () => {
@@ -1208,7 +1462,7 @@ response = openai_client.chat.completions.create(
               {[
                 { id: "1", name: "John Doe", email: "john@example.com", tools_used: 3, last_active: "Never" },
                 { id: "2", name: "Jane Smith", email: "jane@example.com", tools_used: 2, last_active: "Never" }
-              ].map((user, index) => (
+              ].map((user) => (
                 <div key={user.id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
@@ -1308,7 +1562,7 @@ response = openai_client.chat.completions.create(
               <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">View All</button>
             </div>
             <div className="space-y-4">
-              {(installedTools || []).slice(0, 5).map((tool, index) => (
+              {(installedTools || []).slice(0, 5).map((tool: any) => (
                 <div key={tool.id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg">
                   <div className="flex items-center gap-3">
                     <img src={tool.logo} alt={tool.display_name} className="w-10 h-10 rounded-lg" />
@@ -2202,10 +2456,43 @@ response = openai_client.chat.completions.create(
                 <div className="w-8 h-8 bg-gray-900 rounded flex items-center justify-center">
                   <span className="text-white text-sm font-bold">⚡</span>
                 </div>
-                <div className="flex items-center space-x-1">
-                  <span className="text-sm font-medium">{selectedOrganization?.name || 'organization_name'}</span>
-                  <ChevronDown className="w-4 h-4 text-gray-500" />
-                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="flex items-center space-x-1 hover:bg-gray-50 px-2 py-1 rounded-md transition-colors">
+                      <span className="text-sm font-medium">{selectedOrganization?.name || 'organization_name'}</span>
+                      <ChevronDown className="w-4 h-4 text-gray-500" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-64">
+                    {sortedOrganizations.map((org, index) => (
+                      <DropdownMenuItem
+                        key={org.id}
+                        onClick={() => handleOrganizationSelect(org.id)}
+                        className="flex items-center justify-between cursor-pointer"
+                      >
+                        <div className="flex flex-col">
+                          <span className="font-medium">{org.name}</span>
+                          <span className="text-xs text-gray-500 capitalize">{org.role} • {org.domain}</span>
+                        </div>
+                        {selectedOrganization?.id === org.id && (
+                          <Check className="w-4 h-4 text-blue-600" />
+                        )}
+                      </DropdownMenuItem>
+                    ))}
+                    {!hasMaxOwnerRoles && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          className="cursor-pointer text-gray-700"
+                          onClick={handleCreateNewOrganization}
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          New Organization
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
             <div className="flex items-center space-x-6">
@@ -2214,9 +2501,28 @@ response = openai_client.chat.completions.create(
                 <a href="#" className="text-sm text-gray-600 hover:text-gray-900">All Tools</a>
                 <a href="#" className="text-sm text-gray-600 hover:text-gray-900">Docs & SDK</a>
               </nav>
-              <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
-                <UserIcon className="w-4 h-4 text-white" />
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center hover:bg-orange-600 transition-colors">
+                    <UserIcon className="w-4 h-4 text-white" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <div className="px-3 py-2 border-b border-gray-200">
+                    <p className="text-sm font-medium text-gray-900">{user?.name || user?.email || 'User'}</p>
+                    <p className="text-xs text-gray-500">{user?.email}</p>
+                  </div>
+                  <DropdownMenuItem 
+                    className="cursor-pointer text-red-600 hover:bg-red-50"
+                    onClick={() => {
+                      const { logout } = useAuthStore.getState();
+                      logout();
+                    }}
+                  >
+                    <span className="text-sm font-medium">Logout</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
@@ -2256,6 +2562,59 @@ response = openai_client.chat.completions.create(
 
       {/* Install Dialog - Global Level */}
       {renderInstallDialog()}
+
+      {/* Uninstall Confirmation Dialog - Global Level */}
+      {showUninstallConfirm && (
+        <div 
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+          onClick={() => setShowUninstallConfirm(false)}
+        >
+          <div 
+            className="bg-white rounded-lg p-6 max-w-md w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-shrink-0 w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-medium text-gray-900">Uninstall Tool</h3>
+                <p className="text-sm text-gray-500">This action cannot be undone</p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to uninstall <strong>{selectedInstalledTool?.display_name}</strong>? 
+              This will permanently remove the tool and all its configurations.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                onClick={() => setShowUninstallConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 flex items-center gap-2"
+                onClick={() => {
+                  if (selectedInstalledTool?.name) {
+                    uninstallTool.mutate(selectedInstalledTool.name, {
+                      onSuccess: () => {
+                        setSelectedInstalledTool(null);
+                        setShowUninstallConfirm(false);
+                      },
+                    });
+                  }
+                }}
+                disabled={uninstallTool.isPending}
+              >
+                <Trash2 className="w-4 h-4" />
+                {uninstallTool.isPending ? 'Uninstalling...' : 'Yes, Uninstall'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 
