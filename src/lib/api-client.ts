@@ -1,4 +1,4 @@
-import { Tool, ToolsResponse, ToolInstallationRequest } from '@/types/tools';
+import { Tool, ToolsResponse } from '@/types/tools';
 import { LogsResponse, LogFilters } from '@/types/logs';
 import { ApiResponse, DashboardStatsResponse } from '@/types/api';
 import { tokenManager } from './token-manager';
@@ -54,31 +54,53 @@ class ApiClient {
     return finalUrl;
   }
 
-  private async request<T>(
+    private async request<T>(
     endpoint: string,
     options: RequestInit = {},
-    addOrgId: boolean = true
+    addOrgId: boolean = true,
+    requireAuth: boolean = true
   ): Promise<T> {
     // Add organization_id parameter if needed
     const finalEndpoint = addOrgId ? this.addOrganizationId(endpoint) : endpoint;
     const baseUrl = this.getBaseUrl();
     
-  
+
     
     if (!baseUrl) {
       throw new Error('Base URL not configured. Please check NEXT_PUBLIC_MODULEX_HOST environment variable.');
     }
     
     try {
-      const response = await tokenManager.makeAuthenticatedRequest<T>(
-        finalEndpoint,
-        {
-          headers: this.getHeaders(),
-          ...options,
-        }
-      );
-
+      let response: T;
       
+      if (requireAuth) {
+        // Use authenticated request for endpoints that require authentication
+        response = await tokenManager.makeAuthenticatedRequest<T>(
+          finalEndpoint,
+          {
+            headers: this.getHeaders(),
+            ...options,
+          }
+        );
+      } else {
+        // Use direct fetch for unauthenticated endpoints
+        const fetchResponse = await fetch(`${baseUrl}${finalEndpoint}`, {
+          ...options,
+          headers: {
+            'Content-Type': 'application/json',
+            ...this.getHeaders(),
+            ...options.headers,
+          },
+        });
+
+        if (!fetchResponse.ok) {
+          const errorData = await fetchResponse.json().catch(() => ({}));
+          throw new Error(errorData.message || `Request failed: ${fetchResponse.status}`);
+        }
+
+        response = await fetchResponse.json();
+      }
+
       return response;
     } catch (error) {
      
@@ -196,6 +218,10 @@ class ApiClient {
     return this.request(`/dashboard/users/${userId}`);
   }
 
+  async getUserStats(): Promise<any> {
+    return this.request('/dashboard/users/stats');
+  }
+
   // Tool execution (requires org_id)
   async executeTool(toolName: string, action: string, parameters: any): Promise<any> {
     return this.request(`/tools/${toolName}/execute`, {
@@ -250,6 +276,51 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify(organizationData),
     }, false);
+  }
+
+  // Check unique (no org_id needed, no auth needed)
+  async checkUnique(data: { username?: string; email?: string }): Promise<{ username_available: boolean | null; email_available: boolean | null }> {
+    return this.request('/auth/check-unique', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }, false, false);
+  }
+
+  // Register user (no org_id needed, no auth needed)
+  async register(data: { email: string; password: string; username?: string }): Promise<any> {
+    return this.request('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }, false, false);
+  }
+
+  // Invite user to organization
+  async inviteUser(data: { invited_email: string; role: string; invitation_message?: string }): Promise<any> {
+    return this.request('/organizations/invite', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Update user role in organization
+  async updateUserRole(userId: string, role: string): Promise<any> {
+    return this.request(`/organizations/${this.getOrganizationIdFromState()}/users/${userId}/role`, {
+      method: 'PUT',
+      body: JSON.stringify({ role }),
+    });
+  }
+
+  // Remove user from organization
+  async removeUserFromOrganization(userId: string): Promise<any> {
+    return this.request(`/organizations/${this.getOrganizationIdFromState()}/users/${userId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  private getOrganizationIdFromState(): string {
+    // Get organization ID from the store state
+    const orgStore = require('@/store/organization-store');
+    return orgStore.useOrganizationStore.getState().getSelectedOrganizationId();
   }
 }
 

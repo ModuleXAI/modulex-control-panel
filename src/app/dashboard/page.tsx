@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { InviteUserDialog } from '@/components/users/invite-user-dialog';
 import { 
   Search, 
   Heart, 
@@ -34,7 +35,9 @@ import {
   Code,
   BookOpen,
   Wrench,
-  Check
+  Check,
+  UserCheck,
+  UserX
 } from 'lucide-react';
 
 // Import existing components and hooks
@@ -59,6 +62,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { toast } from 'sonner';
+import { apiClient } from '@/lib/api-client';
 
 // Tab configuration
 const TABS = ['Overview', 'Browse Tools', 'My Tools', 'Analytics', 'Users', 'Logs', 'Settings'] as const;
@@ -117,6 +122,13 @@ export default function DashboardPage() {
   // Sub-tab states
   const [activeLogTab, setActiveLogTab] = useState('Tools');
   const [activeSettingsTab, setActiveSettingsTab] = useState('General');
+  
+  // Dialog states
+  const [isInviteUserDialogOpen, setIsInviteUserDialogOpen] = useState(false);
+  const [selectedUserForAction, setSelectedUserForAction] = useState<User | null>(null);
+  const [showRemoveUserConfirm, setShowRemoveUserConfirm] = useState(false);
+  const [isUpdatingRole, setIsUpdatingRole] = useState(false);
+  const [isRemovingUser, setIsRemovingUser] = useState(false);
   const [activeAnalyticsTab, setActiveAnalyticsTab] = useState('Overview');
   const [analyticsDateRange, setAnalyticsDateRange] = useState('7d');
   
@@ -284,7 +296,13 @@ export default function DashboardPage() {
     enabled: shouldLoadMyTools || shouldLoadAnalytics
   });
   
-  const { data: usersData } = useUsers(
+  const { 
+    data: usersData, 
+    refetch: refetchUsers, 
+    isRefetching: isRefetchingUsers, 
+    isLoading: isLoadingUsers,
+    error: usersError 
+  } = useUsers(
     { page: 1, limit: 10 }, 
     { enabled: shouldLoadUsers || shouldLoadAnalytics }
   );
@@ -2037,8 +2055,233 @@ response = openai_client.chat.completions.create(
     );
   };
 
+  // User action handlers
+  const handleUpdateUserRole = async (targetUser: User) => {
+    if (!targetUser.id) {
+      toast.error('User ID is missing');
+      return;
+    }
+
+    const newRole = targetUser.role === 'admin' ? 'member' : 'admin';
+    setIsUpdatingRole(true);
+
+    try {
+      await apiClient.updateUserRole(targetUser.id, newRole);
+      toast.success(`User role updated to ${newRole} successfully!`);
+      
+      // Refresh users data to reflect the change
+      await refetchUsers();
+    } catch (error: any) {
+      console.error('Failed to update user role:', error);
+      
+      if (error?.status === 401) {
+        toast.error('Authentication required. Please log in again.');
+      } else if (error?.status === 403) {
+        toast.error('You do not have permission to update user roles.');
+      } else if (error?.status === 404) {
+        toast.error('User or organization not found.');
+      } else {
+        toast.error('Failed to update user role. Please try again.');
+      }
+    } finally {
+      setIsUpdatingRole(false);
+    }
+  };
+
+  const handleRemoveUser = async (targetUser: User) => {
+    if (!targetUser.id) {
+      toast.error('User ID is missing');
+      return;
+    }
+
+    setIsRemovingUser(true);
+
+    try {
+      await apiClient.removeUserFromOrganization(targetUser.id);
+      toast.success('User removed from organization successfully!');
+      
+      // Refresh users data to reflect the change
+      await refetchUsers();
+      setShowRemoveUserConfirm(false);
+      setSelectedUserForAction(null);
+    } catch (error: any) {
+      console.error('Failed to remove user:', error);
+      
+      if (error?.status === 401) {
+        toast.error('Authentication required. Please log in again.');
+      } else if (error?.status === 403) {
+        toast.error('You do not have permission to remove users.');
+      } else if (error?.status === 404) {
+        toast.error('User or organization not found.');
+      } else if (error?.status === 400) {
+        toast.error('You cannot remove yourself from the organization.');
+      } else {
+        toast.error('Failed to remove user. Please try again.');
+      }
+    } finally {
+      setIsRemovingUser(false);
+    }
+  };
+
   const renderUsers = () => {
-    const users = (usersData?.users || []) as User[];
+    // Handle loading state
+    if (isLoadingUsers) {
+      return (
+        <div>
+          {/* Header */}
+          <div className="flex items-center justify-between mb-8">
+            <h1 className="text-3xl font-bold text-gray-900">Users</h1>
+            <div className="flex items-center gap-3">
+              <button 
+                disabled
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 opacity-50 cursor-not-allowed flex items-center gap-2"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Refresh
+              </button>
+              <button 
+                disabled
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 opacity-50 cursor-not-allowed flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Export
+              </button>
+              <button 
+                disabled
+                className="px-4 py-2 bg-gray-300 text-gray-500 rounded-lg text-sm font-medium cursor-not-allowed flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Invite User
+              </button>
+            </div>
+          </div>
+
+          {/* Stats Cards Skeleton */}
+          <div className="grid grid-cols-4 gap-6 mb-8">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="bg-white rounded-xl border border-gray-200 p-6 animate-pulse">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="h-4 bg-gray-200 rounded w-1/2 mb-3"></div>
+                    <div className="h-8 bg-gray-200 rounded w-2/3 mb-2"></div>
+                    <div className="h-3 bg-gray-200 rounded w-1/3"></div>
+                  </div>
+                  <div className="w-12 h-12 bg-gray-200 rounded-lg"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Users Table Skeleton */}
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    USER
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    STATUS
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    ROLE
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    TOOLS
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    CREATED
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    LAST ACTIVE
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {[...Array(5)].map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
+                        <div>
+                          <div className="h-4 bg-gray-200 rounded w-24 mb-1"></div>
+                          <div className="h-3 bg-gray-200 rounded w-32"></div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="h-6 bg-gray-200 rounded w-16"></div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="h-6 bg-gray-200 rounded w-14"></div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="h-4 bg-gray-200 rounded w-8"></div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="h-4 bg-gray-200 rounded w-20"></div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="h-4 bg-gray-200 rounded w-20"></div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <div className="h-6 bg-gray-200 rounded w-6 ml-auto"></div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    // Handle error state
+    if (usersError) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20">
+          <div className="text-center max-w-md">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="w-8 h-8 text-red-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Error Loading List</h3>
+            <p className="text-gray-600 mb-6">
+              An error occurred while loading user data. Please try again.
+            </p>
+            <button
+              onClick={async () => {
+                try {
+                  await refetchUsers();
+                  toast.success('Data refreshed successfully!');
+                } catch (error) {
+                  toast.error('Error occurred during refresh');
+                }
+              }}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex items-center gap-2 mx-auto"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Try Again
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    const allUsers = (usersData?.users || []) as User[];
+    
+    // Sort users so current user appears first
+    const users = allUsers.sort((a, b) => {
+      // Check if either user is the current user (match by email)
+      const isCurrentUserA = user?.email && a.email === user.email;
+      const isCurrentUserB = user?.email && b.email === user.email;
+      
+      if (isCurrentUserA) return -1; // Current user goes first
+      if (isCurrentUserB) return 1;  // Current user goes first
+      return 0; // Keep original order for other users
+    });
+    
     const totalUsers = users.length;
     const activeUsers = users.filter((user: User) => user.is_active).length;
     const inactiveUsers = users.filter((user: User) => !user.is_active).length;
@@ -2049,17 +2292,31 @@ response = openai_client.chat.completions.create(
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Users</h1>
           <div className="flex items-center gap-3">
-            <button className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-              <RefreshCw className="w-4 h-4" />
-              Refresh
+            <button 
+              onClick={async () => {
+                try {
+                  await refetchUsers();
+                  toast.success('Data refreshed successfully!');
+                } catch (error) {
+                  toast.error('Error occurred during refresh');
+                }
+              }}
+              disabled={isRefetchingUsers}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RefreshCw className={`w-4 h-4 ${isRefetchingUsers ? 'animate-spin' : ''}`} />
+              {isRefetchingUsers ? 'Refreshing...' : 'Refresh'}
             </button>
             <button className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
               <Download className="w-4 h-4" />
               Export
             </button>
-            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center gap-2">
+            <button 
+              onClick={() => setIsInviteUserDialogOpen(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center gap-2"
+            >
               <Plus className="w-4 h-4" />
-              Add User
+              Invite User
             </button>
           </div>
         </div>
@@ -2131,6 +2388,9 @@ response = openai_client.chat.completions.create(
                   STATUS
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  ROLE
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   TOOLS
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -2144,45 +2404,84 @@ response = openai_client.chat.completions.create(
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {users.slice(0, 5).map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50">
+              {users.map((tableUser) => (
+                <tr key={tableUser.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-medium text-blue-700">{getInitials(user.email, user.username)}</span>
+                        <span className="text-sm font-medium text-blue-700">{getInitials(tableUser.email, tableUser.username)}</span>
                       </div>
                       <div>
-                        <div className="text-sm font-medium text-gray-900">{user.username || 'Unknown'}</div>
-                        <div className="text-sm text-gray-500">{user.email || 'No email'}</div>
+                        <div className="text-sm font-medium text-gray-900">{tableUser.username || 'Unknown'}</div>
+                        <div className="text-sm text-gray-500">{tableUser.email || 'No email'}</div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      user.is_active 
+                      tableUser.is_active 
                         ? 'bg-green-100 text-green-800' 
                         : 'bg-red-100 text-red-800'
                     }`}>
-                      {user.is_active ? 'ACTIVE' : 'INACTIVE'}
+                      {tableUser.is_active ? 'ACTIVE' : 'INACTIVE'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-900">{user.toolCount || 0}</span>
+                    <span className={`px-2 py-1 rounded text-xs font-medium capitalize ${
+                      tableUser.role === 'owner' 
+                        ? 'bg-purple-100 text-purple-800' 
+                        : tableUser.role === 'admin'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {tableUser.role || 'member'}
+                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-600">{formatDate(user.created_at)}</span>
+                    <span className="text-sm text-gray-900">{tableUser.toolCount || 0}</span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="text-sm text-gray-600">{formatDate(tableUser.created_at)}</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`text-sm ${
-                      !user.lastActiveAt ? 'text-gray-400' : 'text-gray-600'
+                      !tableUser.lastActiveAt ? 'text-gray-400' : 'text-gray-600'
                     }`}>
-                      {formatDate(user.lastActiveAt)}
+                      {formatDate(tableUser.lastActiveAt)}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <button className="text-gray-400 hover:text-gray-600">
-                      <MoreHorizontal className="w-5 h-5" />
-                    </button>
+                    {!(user?.email && tableUser.email === user.email) && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100">
+                            <MoreHorizontal className="w-5 h-5" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem
+                            onClick={() => handleUpdateUserRole(tableUser)}
+                            disabled={isUpdatingRole}
+                            className="flex items-center gap-2 cursor-pointer"
+                          >
+                            <UserCheck className="w-4 h-4" />
+                            {tableUser.role === 'admin' ? 'Make Member' : 'Make Admin'}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedUserForAction(tableUser);
+                              setShowRemoveUserConfirm(true);
+                            }}
+                            disabled={isRemovingUser}
+                            className="flex items-center gap-2 cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+                          >
+                            <UserX className="w-4 h-4" />
+                            Remove from Organization
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -2615,6 +2914,63 @@ response = openai_client.chat.completions.create(
           </div>
         </div>
       )}
+
+      {/* Remove User Confirmation Dialog */}
+      {showRemoveUserConfirm && selectedUserForAction && (
+        <div 
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+          onClick={() => {
+            setShowRemoveUserConfirm(false);
+            setSelectedUserForAction(null);
+          }}
+        >
+          <div 
+            className="bg-white rounded-lg p-6 max-w-md w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-shrink-0 w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                <UserX className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-medium text-gray-900">Remove User</h3>
+                <p className="text-sm text-gray-500">This action cannot be undone</p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to remove <strong>{selectedUserForAction.username || selectedUserForAction.email}</strong> from this organization? 
+              They will lose access to all tools and data associated with this organization.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                onClick={() => {
+                  setShowRemoveUserConfirm(false);
+                  setSelectedUserForAction(null);
+                }}
+                disabled={isRemovingUser}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 flex items-center gap-2"
+                onClick={() => handleRemoveUser(selectedUserForAction)}
+                disabled={isRemovingUser}
+              >
+                <UserX className="w-4 h-4" />
+                {isRemovingUser ? 'Removing...' : 'Yes, Remove User'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invite User Dialog */}
+      <InviteUserDialog 
+        open={isInviteUserDialogOpen}
+        onOpenChange={setIsInviteUserDialogOpen}
+      />
     </div>
   );
 } 

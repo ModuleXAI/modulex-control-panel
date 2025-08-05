@@ -26,8 +26,14 @@ export function middleware(request: NextRequest) {
   // Organization selection route
   const isOrgSelectRoute = pathname === '/select-organization';
   
+  // Onboarding route (requires auth but not organization)
+  const isOnboardingRoute = pathname === '/onboarding';
+  
+  // Create organization route (requires auth but not organization)
+  const isCreateOrgRoute = pathname === '/dashboard/create-organization';
+  
   // Dashboard routes (require both auth and organization)
-  const isDashboardRoute = pathname.startsWith('/dashboard');
+  const isDashboardRoute = pathname.startsWith('/dashboard') && !isCreateOrgRoute;
   
   // Check if user is authenticated
   const isAuthenticated = !!(accessToken && hostAddress);
@@ -40,12 +46,23 @@ export function middleware(request: NextRequest) {
     search: request.nextUrl.search,
     isAuthenticated,
     hasSelectedOrganization,
-    selectedOrganizationId: selectedOrganizationId ? selectedOrganizationId.substring(0, 8) + '...' : null
+    selectedOrganizationId: selectedOrganizationId ? selectedOrganizationId.substring(0, 8) + '...' : null,
+    cookies: {
+      hasAccessToken: !!accessToken,
+      hasHostAddress: !!hostAddress,
+      hasSelectedOrgId: !!selectedOrganizationId,
+      accessTokenPreview: accessToken ? accessToken.substring(0, 20) + '...' : null,
+      hostAddressValue: hostAddress
+    }
   });
   
   // If not authenticated and trying to access protected route
-  if (!isAuthenticated && !isPublicRoute && !isApiRoute) {
-    console.log('❌ Not authenticated, redirecting to login');
+  if (!isAuthenticated && !isPublicRoute && !isApiRoute && !isOnboardingRoute) {
+    console.log('❌ Not authenticated, redirecting to login', {
+      reason: !accessToken ? 'No access token' : 'No host address',
+      accessToken: accessToken ? 'Present' : 'Missing',
+      hostAddress: hostAddress ? 'Present' : 'Missing'
+    });
     const loginUrl = new URL('/login', request.url);
     return NextResponse.redirect(loginUrl);
   }
@@ -62,9 +79,9 @@ export function middleware(request: NextRequest) {
       dashboardUrl.search = request.nextUrl.search;
       return NextResponse.redirect(dashboardUrl);
     } else {
-      console.log('⚠️ No organization, redirecting to select organization');
-      const selectOrgUrl = new URL('/select-organization', request.url);
-      return NextResponse.redirect(selectOrgUrl);
+      console.log('⚠️ No organization, redirecting to onboarding for login users');
+      const onboardingUrl = new URL('/onboarding', request.url);
+      return NextResponse.redirect(onboardingUrl);
     }
   }
   
@@ -80,17 +97,24 @@ export function middleware(request: NextRequest) {
       dashboardUrl.search = request.nextUrl.search;
       return NextResponse.redirect(dashboardUrl);
     } else {
-      console.log('⚠️ No organization, redirecting to select organization');
-      const selectOrgUrl = new URL('/select-organization', request.url);
-      return NextResponse.redirect(selectOrgUrl);
+      console.log('⚠️ No organization, redirecting to onboarding for new users');
+      const onboardingUrl = new URL('/onboarding', request.url);
+      return NextResponse.redirect(onboardingUrl);
     }
   }
   
-  // If authenticated but no organization selected and trying to access dashboard
-  if (isAuthenticated && !hasSelectedOrganization && isDashboardRoute) {
-    console.log('⚠️ No organization for dashboard, redirecting to select organization');
-    const selectOrgUrl = new URL('/select-organization', request.url);
-    return NextResponse.redirect(selectOrgUrl);
+  // If authenticated but no organization selected and trying to access dashboard (except create-organization)
+  if (isAuthenticated && !hasSelectedOrganization && isDashboardRoute && !isOnboardingRoute) {
+    console.log('⚠️ No organization for dashboard, redirecting to onboarding');
+    const onboardingUrl = new URL('/onboarding', request.url);
+    return NextResponse.redirect(onboardingUrl);
+  }
+  
+  // If authenticated and trying to access create-organization but already has organization
+  if (isAuthenticated && hasSelectedOrganization && isCreateOrgRoute) {
+    console.log('✅ Already has organization, redirecting to dashboard from create-org');
+    const dashboardUrl = new URL('/dashboard', request.url);
+    return NextResponse.redirect(dashboardUrl);
   }
   
   // If authenticated and has organization but trying to access organization selection
@@ -102,6 +126,13 @@ export function middleware(request: NextRequest) {
     const dashboardUrl = new URL('/dashboard', request.url);
     // Preserve query parameters if any
     dashboardUrl.search = request.nextUrl.search;
+    return NextResponse.redirect(dashboardUrl);
+  }
+  
+  // If authenticated and has organization but trying to access onboarding
+  if (isAuthenticated && hasSelectedOrganization && isOnboardingRoute) {
+    console.log('✅ Already has organization, redirecting to dashboard from onboarding');
+    const dashboardUrl = new URL('/dashboard', request.url);
     return NextResponse.redirect(dashboardUrl);
   }
   

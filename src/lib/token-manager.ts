@@ -25,9 +25,36 @@ class TokenManager {
     this.accessToken = Cookies.get('access-token') || null;
     this.refreshToken = Cookies.get('refresh-token') || null;
     
+    console.log('🔄 TokenManager.loadTokensFromStorage:', {
+      hasAccessToken: !!this.accessToken,
+      hasRefreshToken: !!this.refreshToken,
+      accessTokenPreview: this.accessToken ? this.accessToken.substring(0, 20) + '...' : null
+    });
+    
     if (this.accessToken) {
       this.scheduleTokenRefresh();
     }
+  }
+
+  setTokens(accessToken: string, refreshToken: string) {
+    console.log('📝 TokenManager.setTokens called:', {
+      hasAccessToken: !!accessToken,
+      hasRefreshToken: !!refreshToken,
+      accessTokenPreview: accessToken ? accessToken.substring(0, 20) + '...' : null
+    });
+    
+    this.accessToken = accessToken;
+    this.refreshToken = refreshToken;
+    this.saveTokensToStorage(accessToken, refreshToken);
+    this.scheduleTokenRefresh();
+    
+    // Verify tokens were saved
+    const savedAccessToken = Cookies.get('access-token');
+    const savedRefreshToken = Cookies.get('refresh-token');
+    console.log('✅ Tokens saved verification:', {
+      accessTokenSaved: !!savedAccessToken,
+      refreshTokenSaved: !!savedRefreshToken
+    });
   }
 
   private saveTokensToStorage(accessToken: string, refreshToken: string) {
@@ -281,7 +308,14 @@ class TokenManager {
   }
 
   isAuthenticated(): boolean {
-    return !!this.accessToken;
+    const isAuth = !!this.accessToken;
+    console.log('🔐 TokenManager.isAuthenticated check:', {
+      hasAccessToken: !!this.accessToken,
+      hasRefreshToken: !!this.refreshToken,
+      isAuthenticated: isAuth,
+      accessTokenPreview: this.accessToken ? this.accessToken.substring(0, 20) + '...' : null
+    });
+    return isAuth;
   }
 
   getHostAddress(): string | null {

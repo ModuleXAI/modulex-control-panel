@@ -68,6 +68,13 @@ export const useOrganizationStore = create<OrganizationStore>()(
           }
         }
 
+        // Ensure we always have a selected organization if organizations exist
+        if (!selectedId && organizations.length > 0) {
+          const defaultOrg = organizations.find(org => org.is_default) || organizations[0];
+          selectedOrg = defaultOrg;
+          selectedId = defaultOrg.id;
+        }
+
         // Save to cookie if we have a selection
         if (selectedId) {
           Cookies.set('selected-organization-id', selectedId, {
@@ -104,21 +111,18 @@ export const useOrganizationStore = create<OrganizationStore>()(
         // Clear organization-dependent query cache
         if (typeof window !== 'undefined') {
           try {
-            // Dynamically import and clear query cache for organization-dependent queries
-            import('@tanstack/react-query').then(({ useQueryClient }) => {
-              // Get query client instance from context if available
-              const queryClient = (window as any).__REACT_QUERY_CLIENT__;
-              if (queryClient) {
-                // Clear organization-dependent queries
-                queryClient.invalidateQueries({ queryKey: ['tools'] });
-                queryClient.invalidateQueries({ queryKey: ['integrations'] });
-                queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-                queryClient.invalidateQueries({ queryKey: ['analytics'] });
-                queryClient.invalidateQueries({ queryKey: ['users'] });
-                queryClient.invalidateQueries({ queryKey: ['logs'] });
-                console.log('🗑️ Cleared organization-dependent query cache');
-              }
-            });
+            // Get query client instance from context if available
+            const queryClient = (window as any).__REACT_QUERY_CLIENT__;
+            if (queryClient) {
+              // Clear organization-dependent queries
+              queryClient.invalidateQueries({ queryKey: ['tools'] });
+              queryClient.invalidateQueries({ queryKey: ['integrations'] });
+              queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+              queryClient.invalidateQueries({ queryKey: ['analytics'] });
+              queryClient.invalidateQueries({ queryKey: ['users'] });
+              queryClient.invalidateQueries({ queryKey: ['logs'] });
+              console.log('🗑️ Cleared organization-dependent query cache');
+            }
           } catch (error) {
             console.warn('Could not clear query cache:', error);
           }

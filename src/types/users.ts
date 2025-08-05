@@ -10,6 +10,7 @@ export interface User {
   toolCount?: number;
   activeToolCount?: number;
   totalLogins?: number;
+  role?: 'admin' | 'member' | 'owner';
 }
 
 export interface UserTool {
