@@ -80,8 +80,6 @@ modulex-control-panel/
    ```env
    NEXT_PUBLIC_API_URL=https://your-modulex-instance.com
    NEXT_PUBLIC_APP_URL=http://localhost:3000
-   NEXTAUTH_SECRET=your-secret-key
-   NEXTAUTH_URL=http://localhost:3000
    ```
 
 4. **Run the development server**
