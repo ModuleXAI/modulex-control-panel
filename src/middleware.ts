@@ -17,7 +17,7 @@ export function middleware(request: NextRequest) {
   const selectedOrganizationId = request.cookies.get('selected-organization-id')?.value;
   
   // Public routes that don't require authentication
-  const publicRoutes = ['/login', '/register', '/api/health'];
+  const publicRoutes = ['/login', '/register', '/api/health', '/auth/callback'];
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
   
   // API routes (handle auth at the API level)

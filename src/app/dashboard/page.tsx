@@ -5,7 +5,6 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { InviteUserDialog } from '@/components/users/invite-user-dialog';
 import { 
   Search, 
-  Heart, 
   ChevronDown, 
   User as UserIcon, 
   ExternalLink, 
@@ -17,8 +16,6 @@ import {
   RefreshCw, 
   ArrowLeft, 
   Trash2, 
-  Eye, 
-  EyeOff, 
   Download, 
   Users, 
   TrendingUp, 
@@ -30,11 +27,6 @@ import {
   AlertTriangle, 
   CheckCircle, 
   XCircle,
-  X,
-  Settings,
-  Code,
-  BookOpen,
-  Wrench,
   Check,
   UserCheck,
   UserX
@@ -137,9 +129,9 @@ export default function DashboardPage() {
   const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
   const [activeToolTab, setActiveToolTab] = useState('Actions');
   const [selectedInstalledTool, setSelectedInstalledTool] = useState<Tool | null>(null);
-  const [showDebugInfo, setShowDebugInfo] = useState(false);
+  // const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [showInstallDialog, setShowInstallDialog] = useState(false);
-  const [isClosing, setIsClosing] = useState(false);
+  // const [isClosing, setIsClosing] = useState(false);
   const [selectedToolForInstall, setSelectedToolForInstall] = useState<Tool | null>(null);
   const [showUninstallConfirm, setShowUninstallConfirm] = useState(false);
 
@@ -178,11 +170,12 @@ export default function DashboardPage() {
   };
 
   // Data queries
-  const { data: availableIntegrations } = useAvailableIntegrations();
-  const { data: installedIntegrations } = useInstalledIntegrations();
+  // const { data: availableIntegrations } = useAvailableIntegrations();
+  // const { data: installedIntegrations } = useInstalledIntegrations();
 
   // Debug current state with more details
   useEffect(() => {
+    // No-op
   }, [currentTab, pathname, searchParams]);
 
   // Track URL changes
@@ -198,6 +191,7 @@ export default function DashboardPage() {
       window.addEventListener('popstate', handlePopState);
       return () => window.removeEventListener('popstate', handlePopState);
     }
+    return undefined;
   }, []);
 
   // Tab change handler with URL update and localStorage backup
@@ -261,6 +255,7 @@ export default function DashboardPage() {
         }
       };
     }
+    return undefined;
   }, [router]);
 
   // Conditional API calls based on active tab
@@ -345,8 +340,7 @@ export default function DashboardPage() {
       hasAuthSchemas: !!tool.auth_schemas 
     });
     
-    // Reset any previous state
-    setIsClosing(false);
+    // Reset dialog state
     setShowInstallDialog(false);
     // Set tool first
     setSelectedToolForInstall(tool);
@@ -358,12 +352,8 @@ export default function DashboardPage() {
   }, []);
 
   const handleCloseInstallDialog = useCallback(() => {
-    setIsClosing(true);
-    setTimeout(() => {
-      setShowInstallDialog(false);
-      setIsClosing(false);
-      setSelectedToolForInstall(null);
-    }, 300);
+    setShowInstallDialog(false);
+    setSelectedToolForInstall(null);
   }, []);
 
   const getAuthTypeColor = (authType: string) => {
@@ -384,9 +374,10 @@ export default function DashboardPage() {
     const date = new Date(dateString);
     const now = new Date();
     const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-    
-    if (diffInMinutes < 60) return `${diffInMinutes} minutes ago`;
-    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)} hours ago`;
+    const absMinutes = Math.abs(diffInMinutes);
+
+    if (absMinutes < 60) return `${absMinutes} minutes ago`;
+    if (absMinutes < 1440) return `${Math.floor(absMinutes / 60)} hours ago`;
     return date.toLocaleDateString();
   };
 
@@ -404,23 +395,12 @@ export default function DashboardPage() {
     { name: 'AI SDK', icon: '⚡', selected: false }
   ], []);
 
-  // Mock API keys data - memoized to prevent re-creation
-  const apiKeys = useMemo(() => [
-    {
-      id: 1,
-      name: 'production_key',
-      key: 'zr15nx...',
-      created: 'Jul 28, 2025 at 09:15 AM',
-      lastUsed: 'Just now'
-    },
-    {
-      id: 2,
-      name: 'development_key',
-      key: 'ak23mw...',
-      created: 'Jul 25, 2025 at 02:30 PM',
-      lastUsed: '2 hours ago'
+  // Refresh helper
+  const handleRefresh = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.location.reload();
     }
-  ], []);
+  }, []);
 
   const renderOverview = () => (
     <div className="flex gap-8">
@@ -1236,14 +1216,16 @@ response = openai_client.chat.completions.create(
 
     const renderAnalyticsOverview = () => {
       // Mock data structure matching the design requirements
-      const analyticsData = {
-        overview: {
-          total_users: analyticsOverviewQuery.data?.total_users || 6,
-          total_tools: analyticsOverviewQuery.data?.total_tools || 6,
-          active_tools: analyticsOverviewQuery.data?.active_tools || 3,
-          system_health: analyticsOverviewQuery.data?.system_health || "optimal",
-        }
-      };
+      if (analyticsOverviewQuery.error) {
+        return (
+          <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-md p-4">
+            <div className="text-amber-800 text-sm">Analytics verileri yüklenemedi. Lütfen yeniden deneyin.</div>
+            <button onClick={() => analyticsOverviewQuery.refetch()} className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm">Yeniden Dene</button>
+          </div>
+        );
+      }
+
+      const analyticsData = analyticsOverviewQuery.data || { overview: undefined };
 
       if (analyticsOverviewQuery.isLoading) {
         return (
@@ -1269,7 +1251,7 @@ response = openai_client.chat.completions.create(
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <p className="text-gray-600 text-sm font-medium">Total Users</p>
-                  <p className="text-3xl font-bold text-gray-900">{analyticsData.overview.total_users}</p>
+                  <p className="text-3xl font-bold text-gray-900">{analyticsData.overview?.total_users ?? '-'}</p>
                 </div>
                 <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
                   <Users className="w-6 h-6 text-blue-600" />
@@ -1285,7 +1267,7 @@ response = openai_client.chat.completions.create(
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <p className="text-gray-600 text-sm font-medium">Active Tools</p>
-                  <p className="text-3xl font-bold text-gray-900">{analyticsData.overview.active_tools}/{analyticsData.overview.total_tools}</p>
+                  <p className="text-3xl font-bold text-gray-900">{analyticsData.overview?.active_tools ?? '-'}/{analyticsData.overview?.total_tools ?? '-'}</p>
                 </div>
                 <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
                   <Activity className="w-6 h-6 text-green-600" />
@@ -1351,25 +1333,27 @@ response = openai_client.chat.completions.create(
                 <span className="text-blue-600 text-sm font-medium">Top 5</span>
               </div>
               <div className="h-48 bg-gray-50 rounded-lg flex items-center justify-center mb-4">
-                <div className="w-24 h-24 border-8 border-blue-200 border-t-blue-600 rounded-full"></div>
+                <div className="text-sm text-gray-500">Veri mevcut değil</div>
               </div>
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span>GitHub</span><span>35%</span></div>
-                <div className="flex justify-between"><span>Gmail</span><span>25%</span></div>
-                <div className="flex justify-between"><span>R2R</span><span>20%</span></div>
-                <div className="flex justify-between"><span>N8N</span><span>15%</span></div>
-                <div className="flex justify-between"><span>Others</span><span>5%</span></div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500">-</span>
+                  <button onClick={() => analyticsOverviewQuery.refetch()} className="px-2 py-1 bg-blue-600 text-white rounded text-xs">Yeniden Dene</button>
+                </div>
               </div>
             </div>
 
             <div className="bg-white rounded-xl border border-gray-200 p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">API Performance Over Time</h3>
               <div className="h-48 bg-gray-50 rounded-lg flex items-center justify-center mb-4">
-                <Activity className="w-8 h-8 text-gray-400" />
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-gray-500">Veri mevcut değil</span>
+                  <button onClick={() => analyticsOverviewQuery.refetch()} className="px-2 py-1 bg-blue-600 text-white rounded text-xs">Yeniden Dene</button>
+                </div>
               </div>
               <div className="flex justify-between text-sm text-gray-500">
-                <span>Response Time</span>
-                <span>Request Count</span>
+                <span className="text-gray-400">Response Time</span>
+                <span className="text-gray-400">Request Count</span>
               </div>
             </div>
           </div>
@@ -1378,11 +1362,20 @@ response = openai_client.chat.completions.create(
     };
 
     const renderAnalyticsUsers = () => {
+      if (userAnalyticsQuery.error) {
+        return (
+          <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-md p-4">
+            <div className="text-amber-800 text-sm">Kullanıcı analitiği yüklenemedi. Lütfen yeniden deneyin.</div>
+            <button onClick={() => userAnalyticsQuery.refetch()} className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm">Yeniden Dene</button>
+          </div>
+        );
+      }
+
       const userMetrics = {
-        new_users: { value: userAnalyticsQuery.data?.new_users?.value || 3, change: 23, change_type: "increase" },
-        active_users: { value: userAnalyticsQuery.data?.active_users?.value || 0, change: 15, change_type: "increase" },
-        avg_session_time: { value: userAnalyticsQuery.data?.avg_session_time?.value || 24, change: 5, change_type: "increase" },
-        total_users: userAnalyticsQuery.data?.total_users || 6
+        new_users: { value: userAnalyticsQuery.data?.new_users?.value ?? null, change: 23, change_type: 'increase' },
+        active_users: { value: userAnalyticsQuery.data?.active_users?.value ?? null, change: 15, change_type: 'increase' },
+        avg_session_time: { value: userAnalyticsQuery.data?.avg_session_time?.value ?? null, change: 5, change_type: 'increase' },
+        total_users: userAnalyticsQuery.data?.total_users ?? null,
       };
 
       if (userAnalyticsQuery.isLoading) {
@@ -1409,7 +1402,7 @@ response = openai_client.chat.completions.create(
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <p className="text-gray-600 text-sm font-medium">New Users</p>
-                  <p className="text-3xl font-bold text-gray-900">{userMetrics.new_users.value}</p>
+                  <p className="text-3xl font-bold text-gray-900">{userMetrics.new_users.value ?? '-'}</p>
                 </div>
                 <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
                   <Users className="w-6 h-6 text-blue-600" />
@@ -1425,7 +1418,7 @@ response = openai_client.chat.completions.create(
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <p className="text-gray-600 text-sm font-medium">Active Users</p>
-                  <p className="text-3xl font-bold text-gray-900">{userMetrics.active_users.value}</p>
+                  <p className="text-3xl font-bold text-gray-900">{userMetrics.active_users.value ?? '-'}</p>
                 </div>
                 <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
                   <Activity className="w-6 h-6 text-green-600" />
@@ -1441,7 +1434,7 @@ response = openai_client.chat.completions.create(
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <p className="text-gray-600 text-sm font-medium">Avg Session Time</p>
-                  <p className="text-3xl font-bold text-gray-900">{userMetrics.avg_session_time.value}m</p>
+                  <p className="text-3xl font-bold text-gray-900">{userMetrics.avg_session_time.value != null ? `${userMetrics.avg_session_time.value}m` : '-'}</p>
                 </div>
                 <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
                   <Clock className="w-6 h-6 text-purple-600" />
@@ -1457,7 +1450,7 @@ response = openai_client.chat.completions.create(
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <p className="text-gray-600 text-sm font-medium">Total Users</p>
-                  <p className="text-3xl font-bold text-gray-900">{userMetrics.total_users}</p>
+                  <p className="text-3xl font-bold text-gray-900">{userMetrics.total_users ?? '-'}</p>
                 </div>
                 <div className="w-12 h-12 bg-orange-50 rounded-lg flex items-center justify-center">
                   <Shield className="w-6 h-6 text-orange-600" />
@@ -1477,26 +1470,10 @@ response = openai_client.chat.completions.create(
               <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">View All</button>
             </div>
             <div className="space-y-4">
-              {[
-                { id: "1", name: "John Doe", email: "john@example.com", tools_used: 3, last_active: "Never" },
-                { id: "2", name: "Jane Smith", email: "jane@example.com", tools_used: 2, last_active: "Never" }
-              ].map((user) => (
-                <div key={user.id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-medium text-blue-700">{user.name.split(' ').map(n => n[0]).join('')}</span>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                      <div className="text-sm text-gray-500">{user.email}</div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-medium text-gray-900">{user.tools_used} tools</div>
-                    <div className="text-sm text-gray-500">{user.last_active}</div>
-                  </div>
-                </div>
-              ))}
+              <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-md p-3">
+                <div className="text-amber-800 text-sm">Aktif kullanıcılar listesi için veri yok.</div>
+                <button onClick={() => userAnalyticsQuery.refetch()} className="px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm">Yeniden Dene</button>
+              </div>
             </div>
           </div>
         </div>
@@ -2710,30 +2687,18 @@ response = openai_client.chat.completions.create(
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {apiKeys.map((apiKey) => (
-                      <tr key={apiKey.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3">
-                          <span className="font-medium text-gray-900">{apiKey.name}</span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <code className="text-sm text-gray-600 font-mono">{apiKey.key}</code>
-                            <button className="text-gray-400 hover:text-gray-600">
-                              <Copy className="w-4 h-4" />
-                            </button>
+                    <tr>
+                      <td colSpan={5} className="px-4 py-6">
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                            API keys verileri yüklenemedi. Lütfen yeniden deneyin.
                           </div>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{apiKey.created}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{apiKey.lastUsed}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <button className="text-gray-400 hover:text-red-600">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                          <button onClick={handleRefresh} className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm">
+                            Yeniden Dene
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -2763,7 +2728,7 @@ response = openai_client.chat.completions.create(
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-64">
-                    {sortedOrganizations.map((org, index) => (
+                    {sortedOrganizations.map((org) => (
                       <DropdownMenuItem
                         key={org.id}
                         onClick={() => handleOrganizationSelect(org.id)}

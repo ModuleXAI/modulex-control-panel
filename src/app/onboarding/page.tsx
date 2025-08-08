@@ -22,8 +22,8 @@ interface CreateOrganizationFormData {
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { user } = useAuthStore();
-  const { organizations, fetchUserOrganizations, selectOrganization } = useOrganizationStore();
+  const { /* user */ } = useAuthStore();
+  const { /* organizations, */ fetchUserOrganizations, selectOrganization } = useOrganizationStore();
   
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('welcome');
   const [isLoading, setIsLoading] = useState(false);
@@ -51,8 +51,21 @@ export default function OnboardingPage() {
       setHasOrganizations(userHasOrgs);
       
       if (userHasOrgs) {
-        // User has organizations, skip to intro
-        setCurrentStep('intro');
+        // Ensure organization store is populated and one is selected, then go to dashboard
+        try {
+          await fetchUserOrganizations();
+        } catch (err) {
+          // ignore; we'll still attempt to navigate
+        }
+
+        // Ensure a selection exists (store auto-selects default/first if available)
+        let orgStore = useOrganizationStore.getState();
+        if (!orgStore.selectedOrganizationId && orgStore.organizations.length > 0) {
+          selectOrganization(orgStore.organizations[0].id);
+        }
+
+        router.push('/dashboard');
+        return;
       } else {
         // User has no organizations, start with welcome
         setCurrentStep('welcome');
@@ -157,22 +170,30 @@ export default function OnboardingPage() {
     }
   };
 
-  const handleSkipIntro = () => {
-    // Ensure organization is selected before going to dashboard
-    const orgStore = useOrganizationStore.getState();
+  const handleSkipIntro = async () => {
+    // Ensure organizations are populated and one is selected before going to dashboard
+    let orgStore = useOrganizationStore.getState();
+    if (orgStore.organizations.length === 0) {
+      try {
+        await fetchUserOrganizations();
+      } catch (err) {
+        // ignore; navigation may still be blocked by middleware
+      }
+      orgStore = useOrganizationStore.getState();
+    }
     if (!orgStore.selectedOrganizationId && orgStore.organizations.length > 0) {
       selectOrganization(orgStore.organizations[0].id);
     }
     router.push('/dashboard');
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (currentStep === 'welcome') {
       setCurrentStep('create-org');
     } else if (currentStep === 'intro') {
       // Debug: Check final state before dashboard redirect
       const authState = useAuthStore.getState();
-      const orgStore = useOrganizationStore.getState();
+      let orgStore = useOrganizationStore.getState();
       
       console.log('🚀 Final state before dashboard redirect:', {
         auth: {
@@ -191,6 +212,16 @@ export default function OnboardingPage() {
         }
       });
       
+      // If organizations are not yet in the store but the user has orgs, fetch them now
+      if (orgStore.organizations.length === 0 && hasOrganizations) {
+        try {
+          await fetchUserOrganizations();
+        } catch (err) {
+          // ignore; continue with best effort
+        }
+        orgStore = useOrganizationStore.getState();
+      }
+
       // Ensure organization is selected before going to dashboard
       if (!orgStore.selectedOrganizationId && orgStore.organizations.length > 0) {
         console.log('🏢 Last-minute organization selection');

@@ -1,12 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
-import { 
-  AnalyticsOverview, 
-  UserAnalytics, 
-  ToolAnalytics, 
-  PerformanceAnalytics, 
-  SecurityAnalytics 
-} from '@/types/analytics';
+// Note: Types are not used directly here, relying on API client response shapes
 
 export const useAnalyticsOverview = (dateRange: string, options?: { enabled?: boolean }) => {
   return useQuery({

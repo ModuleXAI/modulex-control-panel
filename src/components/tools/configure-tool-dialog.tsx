@@ -28,7 +28,7 @@ import {
   User,
   Calendar,
   CheckCircle,
-  AlertCircle
+  
 } from 'lucide-react';
 import { Tool } from '@/types/tools';
 import { useUpdateToolConfig } from '@/hooks/use-tools';

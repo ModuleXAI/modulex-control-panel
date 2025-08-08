@@ -1,5 +1,7 @@
 import { AuthResponse, RefreshTokenResponse, LoginCredentials } from '@/types/auth';
 import Cookies from 'js-cookie';
+import { isSupabaseProvider } from '@/lib/auth-provider';
+import { getSupabaseClient } from '@/lib/supabase-client';
 
 class TokenManager {
   private baseUrl: string = '';
@@ -12,6 +14,15 @@ class TokenManager {
   constructor() {
     // Set base URL from environment variable
     this.baseUrl = process.env.NEXT_PUBLIC_MODULEX_HOST || '';
+    // Persist host address cookie if available
+    if (this.baseUrl) {
+      const isProduction = process.env.NODE_ENV === 'production';
+      Cookies.set('host-address', this.baseUrl, {
+        expires: 7,
+        sameSite: 'strict',
+        secure: isProduction,
+      });
+    }
     
     // Initialize from cookies on instantiation
     this.loadTokensFromStorage();
@@ -19,6 +30,15 @@ class TokenManager {
 
   setBaseUrl(baseUrl: string) {
     this.baseUrl = baseUrl;
+    // Keep cookie in sync so middleware sees auth host
+    if (baseUrl) {
+      const isProduction = process.env.NODE_ENV === 'production';
+      Cookies.set('host-address', baseUrl, {
+        expires: 7,
+        sameSite: 'strict',
+        secure: isProduction,
+      });
+    }
   }
 
   private loadTokensFromStorage() {
@@ -96,7 +116,10 @@ class TokenManager {
 
     try {
       // Decode JWT to get expiration time
-      const payload = JSON.parse(atob(this.accessToken.split('.')[1]));
+      const payload = this.decodeJwt(this.accessToken);
+      if (!payload || !payload.exp) {
+        throw new Error('Invalid access token payload');
+      }
       const expiresAt = payload.exp * 1000; // Convert to milliseconds
       const now = Date.now();
       const refreshAt = expiresAt - (30 * 60 * 1000); // Refresh 30 minutes before expiry
@@ -120,45 +143,101 @@ class TokenManager {
     }
   }
 
+  private decodeJwt(token: string): any | null {
+    try {
+      const [, payload] = token.split('.');
+      if (!payload) return null;
+      return JSON.parse(atob(payload));
+    } catch (e) {
+      return null;
+    }
+  }
+
+  private getAccessTokenExpiryMs(): number | null {
+    if (!this.accessToken) return null;
+    const payload = this.decodeJwt(this.accessToken);
+    if (!payload || !payload.exp) return null;
+    return payload.exp * 1000;
+  }
+
+  private isAccessTokenExpired(thresholdMs: number = 0): boolean {
+    const expiresAt = this.getAccessTokenExpiryMs();
+    if (!expiresAt) return false; // if unknown, assume not expired to avoid loops
+    const now = Date.now();
+    return expiresAt - now <= thresholdMs;
+  }
+
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
-      if (!this.baseUrl) {
-        throw new Error('NEXT_PUBLIC_MODULEX_HOST environment variable is not set');
-      }
-
-      console.log('🔐 Attempting login to:', `${this.baseUrl}/auth/login`);
-      
-      const response = await fetch(`${this.baseUrl}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      if (isSupabaseProvider()) {
+        const supabase = getSupabaseClient();
+        if (!supabase) throw new Error('Supabase client not initialized');
+        console.log('🔐 Attempting Supabase login');
+        const { data, error } = await supabase.auth.signInWithPassword({
           email: credentials.email,
           password: credentials.password,
-        }),
-      });
+        });
+        if (error) throw error;
+        const session = data.session;
+        if (!session) throw new Error('No Supabase session returned');
+        this.saveTokensToStorage(session.access_token, session.refresh_token as string);
+        this.scheduleTokenRefresh();
+        // Ensure backend host cookie exists
+        if (process.env.NEXT_PUBLIC_MODULEX_HOST) {
+          this.setBaseUrl(process.env.NEXT_PUBLIC_MODULEX_HOST);
+        }
+        console.log('✅ Supabase login successful');
+        const authResponse: AuthResponse = {
+          access_token: session.access_token,
+          refresh_token: session.refresh_token as string,
+          user: {
+            id: session.user.id,
+            email: session.user.email || '',
+            name: session.user.user_metadata?.name || session.user.email || '',
+            role: 'user',
+            createdAt: session.user.created_at || new Date().toISOString(),
+          },
+        } as unknown as AuthResponse;
+        return authResponse;
+      } else {
+        if (!this.baseUrl) {
+          throw new Error('NEXT_PUBLIC_MODULEX_HOST environment variable is not set');
+        }
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Login failed: ${response.status}`);
+        console.log('🔐 Attempting login to:', `${this.baseUrl}/auth/login`);
+        
+        const response = await fetch(`${this.baseUrl}/auth/login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: credentials.email,
+            password: credentials.password,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || `Login failed: ${response.status}`);
+        }
+
+        const authResponse: AuthResponse = await response.json();
+        
+        // Save tokens and schedule refresh
+        this.saveTokensToStorage(authResponse.access_token, authResponse.refresh_token);
+        this.scheduleTokenRefresh();
+        
+        // Save the base URL to cookie for persistence
+        Cookies.set('host-address', this.baseUrl, {
+          expires: 7,
+          sameSite: 'strict',
+          secure: process.env.NODE_ENV === 'production'
+        });
+
+        console.log('✅ Login successful');
+        return authResponse;
       }
-
-      const authResponse: AuthResponse = await response.json();
-      
-      // Save tokens and schedule refresh
-      this.saveTokensToStorage(authResponse.access_token, authResponse.refresh_token);
-      this.scheduleTokenRefresh();
-      
-      // Save the base URL to cookie for persistence
-      Cookies.set('host-address', this.baseUrl, {
-        expires: 7,
-        sameSite: 'strict',
-        secure: process.env.NODE_ENV === 'production'
-      });
-
-      console.log('✅ Login successful');
-      return authResponse;
       
     } catch (error) {
       console.error('❌ Login failed:', error);
@@ -193,31 +272,58 @@ class TokenManager {
   private async _performRefresh(): Promise<boolean> {
     try {
       console.log('🔄 Refreshing access token...');
-      
-      const response = await fetch(`${this.baseUrl}/auth/refresh`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          refresh_token: this.refreshToken,
-        }),
-      });
+      if (isSupabaseProvider()) {
+        const supabase = getSupabaseClient();
+        if (!supabase) return false;
+        // Try to get the current session (auto-refresh may have occurred)
+        const { data: sessionData, error: getErr } = await supabase.auth.getSession();
+        if (getErr) {
+          console.error('❌ Supabase getSession error:', getErr);
+        }
+        const currentSession = sessionData?.session;
+        if (currentSession?.access_token && currentSession.refresh_token) {
+          this.saveTokensToStorage(currentSession.access_token, currentSession.refresh_token);
+          this.scheduleTokenRefresh();
+          console.log('✅ Supabase session used for refresh');
+          return true;
+        }
+        // Fallback: explicitly refresh
+        const { data, error } = await supabase.auth.refreshSession();
+        if (error || !data.session) {
+          console.error('❌ Supabase token refresh failed:', error);
+          this.clearTokensFromStorage();
+          return false;
+        }
+        this.saveTokensToStorage(data.session.access_token, data.session.refresh_token as string);
+        this.scheduleTokenRefresh();
+        console.log('✅ Supabase token refreshed successfully');
+        return true;
+      } else {
+        const response = await fetch(`${this.baseUrl}/auth/refresh`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            refresh_token: this.refreshToken,
+          }),
+        });
 
-      if (!response.ok) {
-        console.error('❌ Token refresh failed:', response.status);
-        this.clearTokensFromStorage();
-        return false;
+        if (!response.ok) {
+          console.error('❌ Token refresh failed:', response.status);
+          this.clearTokensFromStorage();
+          return false;
+        }
+
+        const refreshResponse: RefreshTokenResponse = await response.json();
+        
+        // Update tokens
+        this.saveTokensToStorage(refreshResponse.access_token, refreshResponse.refresh_token);
+        this.scheduleTokenRefresh();
+        
+        console.log('✅ Token refreshed successfully');
+        return true;
       }
-
-      const refreshResponse: RefreshTokenResponse = await response.json();
-      
-      // Update tokens
-      this.saveTokensToStorage(refreshResponse.access_token, refreshResponse.refresh_token);
-      this.scheduleTokenRefresh();
-      
-      console.log('✅ Token refreshed successfully');
-      return true;
       
     } catch (error) {
       console.error('❌ Token refresh error:', error);
@@ -230,9 +336,24 @@ class TokenManager {
     endpoint: string, 
     options: RequestInit = {}
   ): Promise<T> {
-    // Ensure we have a valid access token
+    // Ensure we have a valid access token, attempt refresh if missing but refresh token exists
     if (!this.accessToken) {
-      throw new Error('No access token available');
+      if (this.refreshToken) {
+        const refreshed = await this.refreshAccessToken();
+        if (!refreshed || !this.accessToken) {
+          throw new Error('Authentication failed');
+        }
+      } else {
+        throw new Error('No access token available');
+      }
+    }
+
+    // Preflight: refresh if token is expired or expiring soon (within 60 seconds)
+    if (this.isAccessTokenExpired(60_000)) {
+      const refreshed = await this.refreshAccessToken();
+      if (!refreshed || !this.accessToken) {
+        throw new Error('Authentication failed');
+      }
     }
 
     const makeRequest = async (token: string): Promise<Response> => {
@@ -249,18 +370,23 @@ class TokenManager {
     try {
       let response = await makeRequest(this.accessToken);
 
-      // If we get a 401, try to refresh and retry once
-      if (response.status === 401 && !this.isRefreshing) {
-        console.log('🔄 Got 401, attempting token refresh...');
-        
-        const refreshed = await this.refreshAccessToken();
-        
-        if (refreshed && this.accessToken) {
-          console.log('🔄 Retrying request with new token...');
-          response = await makeRequest(this.accessToken);
+      // If we get a 401, try to refresh (or wait if in progress) and retry once
+      if (response.status === 401) {
+        console.log('🔄 Got 401, handling token refresh...');
+        if (this.isRefreshing && this.refreshPromise) {
+          await this.refreshPromise;
         } else {
+          const refreshed = await this.refreshAccessToken();
+          if (!refreshed) {
+            throw new Error('Authentication failed');
+          }
+        }
+
+        if (!this.accessToken) {
           throw new Error('Authentication failed');
         }
+        console.log('🔄 Retrying request with new token...');
+        response = await makeRequest(this.accessToken);
       }
 
       if (!response.ok) {

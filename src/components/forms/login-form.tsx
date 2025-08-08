@@ -12,6 +12,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useAuthStore } from '@/store/auth-store';
 import { loginSchema, registerSchema, LoginFormData, RegisterFormData } from '@/lib/schemas';
 import { Mail, User, AlertCircle, Check } from 'lucide-react';
+import { isSupabaseProvider } from '@/lib/auth-provider';
+import { getSupabaseClient } from '@/lib/supabase-client';
 
 
 const GithubIcon = () => (
@@ -48,6 +50,7 @@ export default function LoginForm() {
   const [emailStatus, setEmailStatus] = useState<FieldStatus>({ isChecking: false, isAvailable: null });
   const [usernameStatus, setUsernameStatus] = useState<FieldStatus>({ isChecking: false, isAvailable: null });
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const supabaseProvider = isSupabaseProvider();
   
   const { login, register, checkUnique, isLoading } = useAuthStore();
   const router = useRouter();
@@ -184,6 +187,29 @@ export default function LoginForm() {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    try {
+      setError(null);
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        setError('Supabase is not configured');
+        return;
+      }
+      const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : undefined;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          queryParams: { prompt: 'select_account' },
+        },
+      });
+      if (error) throw error;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Google sign-in failed';
+      setError(message);
+    }
+  };
+
   const getFieldIcon = (status: FieldStatus) => {
     if (status.isChecking) {
       return <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" />;
@@ -207,7 +233,7 @@ export default function LoginForm() {
         </p>
       </div>
 
-      <div className="space-y-8 w-full max-w-sm mx-auto">
+        <div className="space-y-8 w-full max-w-sm mx-auto">
         {/* GitHub and Google Buttons - Stacked vertically with consistent width */}
         <div className="space-y-3">
           <button
@@ -219,12 +245,20 @@ export default function LoginForm() {
             <span className="text-xs text-gray-400 ml-auto">Soon</span>
           </button>
           <button
-            className="w-full flex items-center justify-center gap-3 px-4 py-3.5 bg-white text-gray-400 rounded-lg text-sm font-medium border border-gray-200 cursor-not-allowed transition-all hover:bg-gray-50"
-            disabled
+            type="button"
+            onClick={supabaseProvider ? handleGoogleSignIn : undefined}
+            className={`w-full flex items-center justify-center gap-3 px-4 py-3.5 rounded-lg text-sm font-medium border transition-all ${
+              supabaseProvider
+                ? 'bg-white text-gray-900 border-gray-300 hover:bg-gray-50 cursor-pointer'
+                : 'bg-white text-gray-400 border-gray-200 cursor-not-allowed hover:bg-gray-50'
+            }`}
+            disabled={!supabaseProvider}
           >
             <GoogleIcon />
             Continue with Google
-            <span className="text-xs text-gray-400 ml-auto">Soon</span>
+            {!supabaseProvider && (
+              <span className="text-xs text-gray-400 ml-auto">Soon</span>
+            )}
           </button>
         </div>
 

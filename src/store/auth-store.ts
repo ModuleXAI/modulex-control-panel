@@ -5,6 +5,8 @@ import { apiClient } from '@/lib/api-client';
 import { tokenManager } from '@/lib/token-manager';
 import { toast } from 'sonner';
 import Cookies from 'js-cookie';
+import { isSupabaseProvider } from '@/lib/auth-provider';
+import { getSupabaseClient, handleSessionChange } from '@/lib/supabase-client';
 
 interface AuthStore extends AuthState {
   login: (credentials: LoginCredentials) => Promise<void>;
@@ -27,8 +29,15 @@ export const useAuthStore = create<AuthStore>()(
       refreshToken: null,
       hostAddress: null,
 
-      hydrate: () => {
+      hydrate: async () => {
         const currentState = get();
+        if (isSupabaseProvider()) {
+          const supabase = getSupabaseClient();
+          if (!supabase) return;
+          const { data } = await supabase.auth.getSession();
+          handleSessionChange(data.session ?? null);
+        }
+
         const isTokenManagerAuthenticated = tokenManager.isAuthenticated();
         const hostAddress = tokenManager.getHostAddress();
         
@@ -57,22 +66,16 @@ export const useAuthStore = create<AuthStore>()(
         set({ isLoading: true });
         
         try {
-          // Use token manager for login
           const authResponse = await tokenManager.login(credentials);
-          
           console.log('✅ Login successful');
-          
           set({
             user: authResponse.user,
             isAuthenticated: true,
             accessToken: authResponse.access_token,
             refreshToken: authResponse.refresh_token,
-            hostAddress: tokenManager.getHostAddress(), // Get from token manager instead of env
+            hostAddress: tokenManager.getHostAddress(),
             isLoading: false,
           });
-
-          // Note: Organization fetching will be handled by DashboardLayout
-          
         } catch (error) {
           console.error('❌ Login failed:', error);
           set({ isLoading: false });
@@ -88,70 +91,75 @@ export const useAuthStore = create<AuthStore>()(
             email: data.email,
             username: data.username
           });
-          
-          const authResponse = await apiClient.register(data);
-          
-          console.log('✅ Registration successful', {
-            hasAccessToken: !!authResponse.access_token,
-            hasRefreshToken: !!authResponse.refresh_token,
-            hasUser: !!authResponse.user
-          });
-          
-          // Store tokens in token manager
-          tokenManager.setTokens(
-            authResponse.access_token,
-            authResponse.refresh_token
-          );
-          
-          // Ensure base URL is set before saving host address
-          const currentHost = process.env.NEXT_PUBLIC_MODULEX_HOST;
-          if (currentHost) {
-            tokenManager.setBaseUrl(currentHost);
-            
-            // Save the base URL to cookie for persistence (same as login)
-            const isProduction = process.env.NODE_ENV === 'production';
-            Cookies.set('host-address', currentHost, {
-              expires: 7,
-              sameSite: 'strict',
-              secure: isProduction
-            });
-            console.log('🍪 Host address cookie set:', currentHost);
-          } else {
-            console.error('❌ NEXT_PUBLIC_MODULEX_HOST not set');
-          }
-          
-          // Check if tokens are properly stored
-          const storedAccessToken = Cookies.get('access-token');
-          const storedRefreshToken = Cookies.get('refresh-token');
-          const storedHostAddress = Cookies.get('host-address');
-          
-          console.log('🍪 Cookies after registration:', {
-            hasAccessToken: !!storedAccessToken,
-            hasRefreshToken: !!storedRefreshToken,
-            hasHostAddress: !!storedHostAddress,
-            accessTokenPreview: storedAccessToken ? storedAccessToken.substring(0, 20) + '...' : null
-          });
-          
-          set({
-            user: authResponse.user,
-            isAuthenticated: true,
-            accessToken: authResponse.access_token,
-            refreshToken: authResponse.refresh_token,
-            hostAddress: currentHost || tokenManager.getHostAddress(),
-            isLoading: false,
-          });
-          
-          console.log('🔄 Auth state updated:', {
-            isAuthenticated: true,
-            hasUser: !!authResponse.user,
-            hostAddress: tokenManager.getHostAddress()
-          });
 
-          toast.success('Registration successful!', {
-            description: 'Welcome to ModuleX Control Panel',
-            duration: 3000,
-          });
-          
+          if (isSupabaseProvider()) {
+            const supabase = getSupabaseClient();
+            if (!supabase) throw new Error('Supabase client not initialized');
+            const { data: signUpData, error } = await supabase.auth.signUp({
+              email: data.email,
+              password: data.password,
+              options: {
+                data: data.username ? { username: data.username } : undefined,
+              },
+            });
+            if (error) throw error;
+            const session = signUpData.session; // may be null if email confirmation required
+            if (session) {
+              tokenManager.setTokens(session.access_token, session.refresh_token as string);
+              if (process.env.NEXT_PUBLIC_MODULEX_HOST) {
+                tokenManager.setBaseUrl(process.env.NEXT_PUBLIC_MODULEX_HOST);
+              }
+              set({
+                user: {
+                  id: session.user.id,
+                  email: session.user.email || '',
+                  name: session.user.user_metadata?.name || session.user.email || '',
+                  role: 'user',
+                  createdAt: session.user.created_at || new Date().toISOString(),
+                } as User,
+                isAuthenticated: true,
+                accessToken: session.access_token,
+                refreshToken: session.refresh_token as string,
+                hostAddress: tokenManager.getHostAddress(),
+                isLoading: false,
+              });
+              toast.success('Registration successful!', {
+                description: 'Welcome to ModuleX Control Panel',
+                duration: 3000,
+              });
+            } else {
+              set({ isLoading: false });
+              toast.success('Check your email to confirm your account', { duration: 3000 });
+            }
+          } else {
+            const authResponse = await apiClient.register(data);
+            tokenManager.setTokens(
+              authResponse.access_token,
+              authResponse.refresh_token
+            );
+            const currentHost = process.env.NEXT_PUBLIC_MODULEX_HOST;
+            if (currentHost) {
+              tokenManager.setBaseUrl(currentHost);
+              const isProduction = process.env.NODE_ENV === 'production';
+              Cookies.set('host-address', currentHost, {
+                expires: 7,
+                sameSite: 'strict',
+                secure: isProduction
+              });
+            }
+            set({
+              user: authResponse.user,
+              isAuthenticated: true,
+              accessToken: authResponse.access_token,
+              refreshToken: authResponse.refresh_token,
+              hostAddress: currentHost || tokenManager.getHostAddress(),
+              isLoading: false,
+            });
+            toast.success('Registration successful!', {
+              description: 'Welcome to ModuleX Control Panel',
+              duration: 3000,
+            });
+          }
         } catch (error) {
           console.error('❌ Registration failed:', error);
           set({ isLoading: false });
@@ -171,19 +179,19 @@ export const useAuthStore = create<AuthStore>()(
         }
       },
 
-      logout: () => {
+      logout: async () => {
         console.log('🚪 Logout initiated from auth store');
-        
-        // Show logout toast
         toast.success('Logged out successfully', {
           description: 'You have been logged out securely',
           duration: 2000,
         });
-        
-        // Use token manager for logout
+        if (isSupabaseProvider()) {
+          try {
+            const supabase = getSupabaseClient();
+            if (supabase) await supabase.auth.signOut();
+          } catch {}
+        }
         tokenManager.logout();
-        
-        // Clear auth store state
         set({
           user: null,
           isAuthenticated: false,
@@ -192,21 +200,14 @@ export const useAuthStore = create<AuthStore>()(
           hostAddress: null,
           isLoading: false,
         });
-
-        // Clear organization store
         if (typeof window !== 'undefined') {
           try {
-            // Clear organization store by importing it dynamically
             import('@/store/organization-store').then(({ useOrganizationStore }) => {
               useOrganizationStore.getState().clearOrganizations();
             });
-          } catch (error) {
-          }
+          } catch {}
         }
-        
         console.log('✅ Auth store state cleared');
-        
-        // Force redirect to login page
         setTimeout(() => {
           window.location.href = '/login';
         }, 100);
