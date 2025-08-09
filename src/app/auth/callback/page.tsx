@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getSupabaseClient, handleSessionChange } from '@/lib/supabase-client';
 
-export default function AuthCallbackPage() {
+function CallbackHandler() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
@@ -21,17 +21,12 @@ export default function AuthCallbackPage() {
         const hasCode = typeof window !== 'undefined' && window.location.search.includes('code=');
 
         if (hasCode) {
-          // PKCE code flow
           const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(
             window.location.href
           );
           if (exchangeError) throw exchangeError;
-        } else {
-          // Implicit flow (hash fragment). The client is configured with detectSessionInUrl: true
-          // which will parse the fragment on client initialization.
         }
 
-        // Get the current session and ensure our TokenManager is hydrated
         const { data: sessionData, error: getErr } = await supabase.auth.getSession();
         if (getErr) throw getErr;
         if (sessionData?.session) {
@@ -57,5 +52,14 @@ export default function AuthCallbackPage() {
     </div>
   );
 }
+
+export default function AuthCallbackPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><p className="text-sm text-gray-600">Completing sign-in…</p></div>}>
+      <CallbackHandler />
+    </Suspense>
+  );
+}
+
 
 
